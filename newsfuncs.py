@@ -9,7 +9,8 @@ def command_line_parse():
   parser = OptionParser()
 
   parser.add_option( "-o", "--outStderr", dest="outStderr", help=\
-    "Set the stream for standard error. If no argument is passed, the default standard error stream will be sys.stderr", default="" )
+    "Set the stream for standard error. If no argument is passed, the"+\
+    "default standard error stream will be sys.stderr", default="" )
   parser.add_option( "-v", "--errorVerbosity", dest="errorVerbosity", help=\
     "Set whether to write errors and exception messages to the standard error",
     default=True )
