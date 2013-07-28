@@ -1,9 +1,16 @@
 #!/usr/bin/python3
 #Author: Emmanuel Odeke <odeke@ualberta.ca>
-#Scrap any website for target files with target extensions eg pdf, png, gif etc
-import sys
-import urllib.request
+#Scrap any website for files with target extensions eg pdf, png, gif etc
+#Tested on, and supporting versions: Python2.X and above
+
 import re
+import sys
+
+pyVersion = sys.hexversion/(1<<24)
+if pyVersion >= 3:
+  import urllib.request as urlGetter
+else:
+  import urllib as urlGetter
 
 ################################CONSTANTS HERE#####################################
 DEFAULT_EXTENSIONS_REGEX = '\.(jpg|png|gif|pdf)'
@@ -14,6 +21,9 @@ END_NAME = "([^\/\s]+)$" #The text right after the last slash '/'
 
 regexCompile = lambda regex : re.compile(regex, re.IGNORECASE)
 
+#Writes a message to a stream and flushes the stream
+streamPrintFlush = lambda msg,stream: msg and stream.write(msg) and stream.flush()
+
 def getFiles(url, extCompile, recursionDepth=5):
   #Args: url, extCompile=> A pattern object of the extension(s) to match
   #      recursionDepth => An integer that indicates how deep to scrap
@@ -21,31 +31,33 @@ def getFiles(url, extCompile, recursionDepth=5):
   #                          to keep crawling as far as the program can go
   if not recursionDepth: return
   if not hasattr(extCompile, 'search'):
-    print(
+    streamPrintFlush(
      "Expecting a pattern object/result of re.compile(..) for arg 'extCompile'"
-    )
+    , sys.stderr)
     return
 
   try:
-    data = urllib.request.urlopen(url)  
-    decodedData = data.read().decode()
-  except: pass
+    data = urlGetter.urlopen(url)  
+    if pyVersion >= 3:decodedData = data.read().decode()
+    else: decodedData = data.read()
+    
+  except Exception: pass
   else:
     urls = re.findall(URL_REGEX, decodedData, re.MULTILINE)
     urls = list(map(lambda s : re.sub(REPEAT_HTTP,HTTP_HEAD,s), urls))
 
-    images = filter(lambda s : extCompile.search(s), urls)
-    nonImages = filter(lambda s : not extCompile.search(s), urls)
+    matchedFileUrls = filter(lambda s : extCompile.search(s), urls)
+    plainUrls = filter(lambda s : not extCompile.search(s), urls)
 
-    #Time to download all the images
-    dlResults = map(lambda eachImg: dlData(eachImg), images)
+    #Time to download all the matched files 
+    dlResults = map(lambda eachUrl: dlData(eachUrl), matchedFileUrls)
     resultsList = list(filter(lambda val: val, dlResults))
 
     #Report to user successful saves
-    print("For url %s downloaded %d files"%(url, len(resultsList)))
+    streamPrintFlush("For url %s downloaded %d files"%(url, len(resultsList)))
 
     recursionDepth -= 1
-    for eachUrl in nonImages:
+    for eachUrl in plainUrls:
       getFiles(eachUrl, extCompile, recursionDepth)
 
 def dlData(url):
@@ -53,42 +65,53 @@ def dlData(url):
  #Download the data from the url and write it to memory
  #Returns: True iff the data was successfully written, else: False
  if not (url and re.search(HTTP_HEAD,url)): return None
- try: data = urllib.request.urlopen(url)
- except Exception as e: return False
+ try: data = urlGetter.urlopen(url)
+ except Exception: return False
  else:
    fileSearch = re.findall(END_NAME, url)
    if not fileSearch : return False
   
    fileName = fileSearch[0]
-   print("From url %s"%(url))
+   streamPrintFlush("From url %s\n"%(url), sys.stderr)
 
    try:
-     with open(fileName,'wb') as f:
-       f.write(data.read())
-       print("Wrote %s to memory"%(fileName))
-       return True
+     f = open(fileName,'wb')
+     f.write(data.read())
+     f.close()
    except: 
-     print("Failed to write %s to memory"%(fileName)) 
+     streamPrintFlush("Failed to write %s to memory"%(fileName), sys.stderr) 
      return False
+   else:
+     streamPrintFlush("Wrote %s to memory\n"%(fileName), sys.stderr)
+     return True
+
 
 def main():
   while True:
     try:
-      baseUrl = input("Target Url: ")
-      extensions = input("Your extensions separated by '|' eg png|html: ")
-      rDepth = int(input(
+      streamPrintFlush("Target Url: ", sys.stderr)
+      lineIn = sys.stdin.readline()
+      baseUrl = lineIn.strip("\n")
+
+      streamPrintFlush("Your extensions separated by '|' eg png|html: ", sys.stderr)
+      lineIn = sys.stdin.readline()
+      extensions = lineIn.strip("\n")
+      
+      streamPrintFlush(
         "Recursion Depth(a negative depth indicates you want script to go as far): "
-      ))
+      ,sys.stderr)
+      lineIn = sys.stdin.readline()
+      rDepth = int(lineIn.strip("\n"))
 
       if not extensions:
         extCompile = regexCompile(DEFAULT_EXTENSIONS_REGEX)
       else:
         extCompile = regexCompile(extensions)
 
-    except ValueError as e:
-      print("Recursion depth must be an integer")
-    except KeyboardInterrupt as e:
-      print("Ctrl-C applied. Exiting now..")
+    except ValueError:
+      streamPrintFlush("Recursion depth must be an integer")
+    except KeyboardInterrupt:
+      streamPrintFlush("Ctrl-C applied. Exiting now..\n",sys.stderr)
       break
     except Exception:
       continue
@@ -98,6 +121,7 @@ def main():
 
       if extCompile:
         getFiles(baseUrl, extCompile, rDepth)
-  print("Bye..")
+
+  streamPrintFlush("Bye..\n",sys.stderr)
 if __name__ == '__main__':
   main()
