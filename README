@@ -1,0 +1,6 @@
+#Crawlers
+
+#Added 'fileDownloader.py' => Pass in any website and the desired file
+#extensions you want to download, plus the recursion depth you want to dive to.
+#A negative recursion depth signals that you want the script to crawl as 
+#deep as it can go.
