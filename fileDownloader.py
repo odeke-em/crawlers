@@ -54,7 +54,9 @@ def getFiles(url, extCompile, recursionDepth=5):
     resultsList = list(filter(lambda val: val, dlResults))
 
     #Report to user successful saves
-    streamPrintFlush("For url %s downloaded %d files"%(url, len(resultsList)))
+    streamPrintFlush(
+     "For url %s downloaded %d files"%(url, len(resultsList)), sys.stderr
+    )
 
     recursionDepth -= 1
     for eachUrl in plainUrls:
@@ -109,7 +111,7 @@ def main():
         extCompile = regexCompile(extensions)
 
     except ValueError:
-      streamPrintFlush("Recursion depth must be an integer")
+      streamPrintFlush("Recursion depth must be an integer", sys.stderr)
     except KeyboardInterrupt:
       streamPrintFlush("Ctrl-C applied. Exiting now..\n",sys.stderr)
       break
