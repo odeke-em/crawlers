@@ -32,7 +32,7 @@ def getFiles(url, extCompile, recursionDepth=5):
   if not recursionDepth: return
   if not hasattr(extCompile, 'search'):
     streamPrintFlush(
-     "Expecting a pattern object/result of re.compile(..) for arg 'extCompile'"
+     "Expecting a pattern object/result of re.compile(..) for arg 'extCompile'\n"
     , sys.stderr)
     return
 
@@ -55,7 +55,7 @@ def getFiles(url, extCompile, recursionDepth=5):
 
     #Report to user successful saves
     streamPrintFlush(
-     "For url %s downloaded %d files"%(url, len(resultsList)), sys.stderr
+     "For url %s downloaded %d files\n"%(url, len(resultsList)), sys.stderr
     )
 
     recursionDepth -= 1
@@ -81,7 +81,7 @@ def dlData(url):
      f.write(data.read())
      f.close()
    except: 
-     streamPrintFlush("Failed to write %s to memory"%(fileName), sys.stderr) 
+     streamPrintFlush("Failed to write %s to memory\n"%(fileName), sys.stderr) 
      return False
    else:
      streamPrintFlush("Wrote %s to memory\n"%(fileName), sys.stderr)
@@ -91,16 +91,18 @@ def dlData(url):
 def main():
   while True:
     try:
-      streamPrintFlush("Target Url: ", sys.stderr)
+      streamPrintFlush("\nTarget Url: ", sys.stderr)
       lineIn = sys.stdin.readline()
       baseUrl = lineIn.strip("\n")
 
-      streamPrintFlush("Your extensions separated by '|' eg png|html: ", sys.stderr)
+      streamPrintFlush(
+       "Your extensions separated by '|' eg png|html: ", sys.stderr
+      )
       lineIn = sys.stdin.readline()
       extensions = lineIn.strip("\n")
       
       streamPrintFlush(
-        "Recursion Depth(a negative depth indicates you want script to go as far): "
+        "\nRecursion Depth(a negative depth indicates you want script to go as far): "
       ,sys.stderr)
       lineIn = sys.stdin.readline()
       rDepth = int(lineIn.strip("\n"))
@@ -111,7 +113,7 @@ def main():
         extCompile = regexCompile(extensions)
 
     except ValueError:
-      streamPrintFlush("Recursion depth must be an integer", sys.stderr)
+      streamPrintFlush("Recursion depth must be an integer\n", sys.stderr)
     except KeyboardInterrupt:
       streamPrintFlush("Ctrl-C applied. Exiting now..\n",sys.stderr)
       break
