@@ -1,16 +1,25 @@
 #!/usr/bin/python3
-#Author: Emmanuel Odeke <odeke@ualberta.ca>
-#Scrap any website for files with target extensions eg pdf, png, gif etc
-#Tested on, and supporting versions: Python2.X and above
+# Author: Emmanuel Odeke <odeke@ualberta.ca>
+# Scrap any website for files with target extensions eg pdf, png, gif etc
+# Tested on, and supporting versions: Python2.X and above
 
 import re
 import sys
 
+from hashlib import md5
+
 pyVersion = sys.hexversion/(1<<24)
 if pyVersion >= 3:
   import urllib.request as urlGetter
+  encodingArgs = dict(encoding='utf-8')
 else:
   import urllib as urlGetter
+  encodingArgs = dict()
+
+DEBUG = False # Set to False to turn off verbosity
+
+dlCache = dict()
+
 
 ################################CONSTANTS HERE#####################################
 DEFAULT_EXTENSIONS_REGEX = '\.(jpg|png|gif|pdf)'
@@ -22,7 +31,7 @@ END_NAME = "([^\/\s]+)$" #The text right after the last slash '/'
 regexCompile = lambda regex : re.compile(regex, re.IGNORECASE)
 
 #Writes a message to a stream and flushes the stream
-streamPrintFlush = lambda msg,stream: msg and stream.write(msg) and stream.flush()
+streamPrintFlush = lambda msg,stream=sys.stderr: msg and stream.write(msg) and stream.flush()
 
 def getFiles(url, extCompile, recursionDepth=5):
   #Args: url, extCompile=> A pattern object of the extension(s) to match
@@ -47,7 +56,7 @@ def getFiles(url, extCompile, recursionDepth=5):
     urls = list(map(lambda s : re.sub(REPEAT_HTTP,HTTP_HEAD,s), urls))
 
     matchedFileUrls = filter(lambda s : extCompile.search(s), urls)
-    plainUrls = filter(lambda s : not extCompile.search(s), urls)
+    plainUrls = filter(lambda s : s not in matchedFileUrls, urls)
 
     #Time to download all the matched files 
     dlResults = map(lambda eachUrl: dlData(eachUrl), matchedFileUrls)
@@ -67,6 +76,23 @@ def dlData(url):
  #Download the data from the url and write it to memory
  #Returns: True iff the data was successfully written, else: False
  if not (url and re.search(HTTP_HEAD,url)): return None
+
+ # Let's check the cache first
+ # Computing the url's hash
+ 
+ urlStrHash = None
+ try:
+   bEncodedUrl = bytes(url, **encodingArgs)
+   urlStrHash = md5(bEncodedUrl).hexdigest()
+ except:
+   streamPrintFlush("Cannot hash the provided URL")
+   return None
+   
+ alreadyIn = dlCache.get(urlStrHash, None) 
+ if alreadyIn:
+   if DEBUG: streamPrintFlush("\033[32mAlready downloaded %s\033[00m\n"%(url))
+   return None
+
  try: data = urlGetter.urlopen(url)
  except Exception: return False
  else:
@@ -85,8 +111,14 @@ def dlData(url):
      return False
    else:
      streamPrintFlush("Wrote %s to memory\n"%(fileName), sys.stderr)
-     return True
+     
+     # Let's now cache that url and mark it's content as already visited
+     # where the urlString hash is the key and downloaded urls are the values
+     markedContent = dlCache.get(urlStrHash, [])
+     markedContent.append(url)
+     dlCache[urlStrHash] = markedContent
 
+     return True
 
 def main():
   while True:
