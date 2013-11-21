@@ -2,6 +2,7 @@
 # Author: Emmanuel Odeke <odeke@ualberta.ca>
 # Scrap any website for files with target extensions eg pdf, png, gif etc
 # Tested on, and supporting versions: Python2.X and above
+# Example: ./fileDownloader.py
 
 import re
 import sys
@@ -20,7 +21,6 @@ DEBUG = False # Set to False to turn off verbosity
 
 dlCache = dict()
 
-
 ################################CONSTANTS HERE#####################################
 DEFAULT_EXTENSIONS_REGEX = '\.(jpg|png|gif|pdf)'
 HTTP_HEAD_REGEX  = 'https?://'
@@ -35,6 +35,12 @@ regexCompile = lambda regex : re.compile(regex, re.IGNORECASE)
 
 #Writes a message to a stream and flushes the stream
 streamPrintFlush = lambda msg,stream=sys.stderr: msg and stream.write(msg) and stream.flush()
+
+def prepareUrl(url, httpDomain): 
+  # Args: url eg http://www.ualberta.ca, https://github.com, www.ualberta.ca
+  # This will handle http domain checking eg http vs https
+  # sanitizing of urls and other preparations
+  pass
 
 def getFiles(url, extCompile, recursionDepth=5, httpDomain=HTTPS_DOMAIN):
   #Args: url, extCompile=> A pattern object of the extension(s) to match
@@ -126,26 +132,41 @@ def dlData(url):
 
      return True
 
+def readFromStream(stream=sys.stdin):
+  try:
+    lineIn = stream.readline()
+  except:
+    return None, None
+  else:
+    EOFState = (lineIn == "")
+    return lineIn, EOFState
+
 def main():
   while True:
     try:
       streamPrintFlush(
         "\nTarget Url: eg [www.example.org or http://www.h.com] ", sys.stderr
       )
-      lineIn = sys.stdin.readline()
+      lineIn, eofState = readFromStream()
+      if eofState: break
+
       baseUrl = lineIn.strip("\n")
 
       streamPrintFlush(
        "Your extensions separated by '|' eg png|html: ", sys.stderr
       )
 
-      lineIn = sys.stdin.readline()
+      lineIn, eofState = readFromStream()
+      if eofState: break
       extensions = lineIn.strip("\n")
       
       streamPrintFlush(
         "\nRecursion Depth(a negative depth indicates you want script to go as far): "
       ,sys.stderr)
-      lineIn = sys.stdin.readline()
+
+      lineIn, eofState = readFromStream()
+      if eofState: break
+
       rDepth = int(lineIn.strip("\n"))
 
       if not extensions:
