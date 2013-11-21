@@ -23,17 +23,20 @@ dlCache = dict()
 
 ################################CONSTANTS HERE#####################################
 DEFAULT_EXTENSIONS_REGEX = '\.(jpg|png|gif|pdf)'
-HTTP_HEAD  = 'https?://'
-URL_REGEX = '(%s[^\s"]+)'%(HTTP_HEAD)
-REPEAT_HTTP = "%s{2,}"%(HTTP_HEAD)
+HTTP_HEAD_REGEX  = 'https?://'
+URL_REGEX = '(%s[^\s"]+)'%(HTTP_HEAD_REGEX)
+REPEAT_HTTP = "%s{2,}"%(HTTP_HEAD_REGEX)
 END_NAME = "([^\/\s]+)$" #The text right after the last slash '/'
+
+HTTP_DOMAIN = "http://"
+HTTPS_DOMAIN = "https://"
 
 regexCompile = lambda regex : re.compile(regex, re.IGNORECASE)
 
 #Writes a message to a stream and flushes the stream
 streamPrintFlush = lambda msg,stream=sys.stderr: msg and stream.write(msg) and stream.flush()
 
-def getFiles(url, extCompile, recursionDepth=5):
+def getFiles(url, extCompile, recursionDepth=5, httpDomain=HTTPS_DOMAIN):
   #Args: url, extCompile=> A pattern object of the extension(s) to match
   #      recursionDepth => An integer that indicates how deep to scrap
   #                        Note: A negative recursion depth indicates that you want
@@ -45,6 +48,9 @@ def getFiles(url, extCompile, recursionDepth=5):
     , sys.stderr)
     return
 
+  if not re.search(HTTP_HEAD_REGEX,url): 
+    url = "%s%s"%(httpDomain, url)
+
   try:
     data = urlGetter.urlopen(url)  
     if pyVersion >= 3:decodedData = data.read().decode()
@@ -53,7 +59,7 @@ def getFiles(url, extCompile, recursionDepth=5):
   except Exception: pass
   else:
     urls = re.findall(URL_REGEX, decodedData, re.MULTILINE)
-    urls = list(map(lambda s : re.sub(REPEAT_HTTP,HTTP_HEAD,s), urls))
+    urls = list(map(lambda s : re.sub(REPEAT_HTTP,HTTP_HEAD_REGEX,s), urls))
 
     matchedFileUrls = filter(lambda s : extCompile.search(s), urls)
     plainUrls = filter(lambda s : s not in matchedFileUrls, urls)
@@ -75,7 +81,7 @@ def dlData(url):
  #Args: A url
  #Download the data from the url and write it to memory
  #Returns: True iff the data was successfully written, else: False
- if not (url and re.search(HTTP_HEAD,url)): return None
+ if not (url and re.search(HTTP_HEAD_REGEX,url)): return None
 
  # Let's check the cache first
  # Computing the url's hash
@@ -123,13 +129,16 @@ def dlData(url):
 def main():
   while True:
     try:
-      streamPrintFlush("\nTarget Url: ", sys.stderr)
+      streamPrintFlush(
+        "\nTarget Url: eg [www.example.org or http://www.h.com] ", sys.stderr
+      )
       lineIn = sys.stdin.readline()
       baseUrl = lineIn.strip("\n")
 
       streamPrintFlush(
        "Your extensions separated by '|' eg png|html: ", sys.stderr
       )
+
       lineIn = sys.stdin.readline()
       extensions = lineIn.strip("\n")
       
