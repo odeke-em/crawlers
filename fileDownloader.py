@@ -6,7 +6,9 @@
 
 import re
 import sys
+import time
 
+from trie import Trie
 from hashlib import md5
 
 pyVersion = sys.hexversion/(1<<24)
@@ -19,14 +21,53 @@ else:
 
 DEBUG = False # Set to False to turn off verbosity
 
+startTimeStr = time.ctime()
+startTimeSecs = time.clock()
+
 dlCache = dict()
+fileNameCache = dict()
+fileNameTrie = Trie('0')
+
+def showStats():
+  nDownloads = len(dlCache)
+  nMemWrites = fileNameTrie.getAdditions()
+  
+  filePlurality = "files"
+  dlPlurality = "downloads"
+
+  if nMemWrites == 1: 
+    filePlurality = "file"
+  if nDownloads == 1:
+    dlPlurality = "download"
+
+  endTimeStr = time.ctime()
+  endTimeSecs = time.clock()
+  timeSpent = endTimeSecs - startTimeSecs
+
+  streamPrintFlush ("\033[94m")
+  streamPrintFlush (
+    "\n\tStarted @: {st} \n\tEnded   @: {et}".format(st=startTimeStr, et=endTimeStr)
+  )
+  streamPrintFlush (
+    "\n\t\033[95mTotal time spent: {} [units of processor time]".format(timeSpent)
+  )
+  streamPrintFlush (
+   "\n\tRequested {ndl} {fp}".format(fp=dlPlurality, ndl=nDownloads)
+  )
+  streamPrintFlush (
+    "\n\tWrote {nfw} {fp} to memory\n".format(
+         nfw=nMemWrites, fp=filePlurality
+    )
+  )
+  streamPrintFlush ("\n\033[32mBye!\033[00m\n")
+
 
 ################################CONSTANTS HERE#####################################
 DEFAULT_EXTENSIONS_REGEX = '\.(jpg|png|gif|pdf)'
 HTTP_HEAD_REGEX  = 'https?://'
 URL_REGEX = '(%s[^\s"]+)'%(HTTP_HEAD_REGEX)
 REPEAT_HTTP = "%s{2,}"%(HTTP_HEAD_REGEX)
-END_NAME = "([^\/\s]+)$" #The text right after the last slash '/'
+END_NAME = "([^\/\s]+\.\w+)$" #The text right after the last slash '/'
 
 HTTP_DOMAIN = "http://"
 HTTPS_DOMAIN = "https://"
@@ -83,6 +124,10 @@ def getFiles(url, extCompile, recursionDepth=5, httpDomain=HTTPS_DOMAIN):
     for eachUrl in plainUrls:
       getFiles(eachUrl, extCompile, recursionDepth)
 
+def getAvailableName(proposedName):
+  isAvailable = fileTrie.getAvailableSuggestions(proposedName)
+  if isAvailable: return proposedName
+
 def dlData(url):
  #Args: A url
  #Download the data from the url and write it to memory
@@ -110,8 +155,22 @@ def dlData(url):
  else:
    fileSearch = re.findall(END_NAME, url)
    if not fileSearch : return False
-  
+
    fileName = fileSearch[0]
+   fnameExtensionSeparate = re.findall("(.*)\.(\w+)$", fileName, re.UNICODE)
+   if not fnameExtensionSeparate: return False # Raise error possibly
+   proposedName, extension = fnameExtensionSeparate[0]
+    
+   availableName = fileNameTrie.getSuggestion(proposedName)
+   if not availableName:
+      print(
+        "Sorry no alternate suggestions for %s could be proposed"%(fileName)
+      )
+      return False
+
+   fileName = "%s.%s"%(availableName, extension)
+   fileNameTrie.addSeq(availableName, 0, len(availableName)) # Mark this entry as taken
+
    streamPrintFlush("From url %s\n"%(url), sys.stderr)
 
    try:
@@ -190,4 +249,9 @@ def main():
 
   streamPrintFlush("Bye..\n",sys.stderr)
 if __name__ == '__main__':
-  main()
+  try:
+    main()
+  except:
+    pass
+  finally:
+    showStats()

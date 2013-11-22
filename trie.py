@@ -3,18 +3,25 @@
 
 import re
 
-intStartCompile = re.compile(r'^\d', re.UNICODE)
+symbols = ['!'] #['-', '$']
+symAsStr = r'[%s!]'%("".join(symbols))
+
+symbolCompile = re.compile(symAsStr, re.UNICODE)
 chStartCompile = re.compile(r'^\w', re.UNICODE)
+intStartCompile = re.compile(r'^\d', re.UNICODE)
+
+# print(symAsStr)
 
 radixDomain = [chr(i) for i in range(ord('0'), ord('9')+1)] + \
-              [chr(i) for i in range(ord('a'), ord('z')+1)]
-
+              [chr(i) for i in range(ord('a'), ord('z')+1)] + \
+              symbols
 
 DEBUG = False # Set to False to turn off verbosity
 RADIX_SIZE = len(radixDomain)
 
 intRadixer = lambda ch : ord(ch[0]) - ord('0')
 chRadixer = lambda ch : intRadixer('9') + (ord(ch[0].lower()) - ord('a'))
+symbolRadixer = lambda ch: chRadixer('z') + (symbols.index(ch))
 
 def getCategory(ch):
   if not ch:
@@ -25,6 +32,8 @@ def getCategory(ch):
       converter = intRadixer
     elif chStartCompile.search(ch):
       converter = chRadixer
+    elif symbolCompile.search(ch):
+      converter = symbolRadixer
 
     return converter
 
@@ -33,7 +42,7 @@ class Trie(object):
     self.__index = index
     self.__additions = 0
     self.__filledIndices = set()
-    self.__indices = [0 for idx in range(RADIX_SIZE)]
+    self.__indices = [-1 for idx in range(RADIX_SIZE)]
 
   def __str__(self):
     outStr = "{0}".format(self.__index)
@@ -44,11 +53,13 @@ class Trie(object):
 
     return outStr
 
+  def getAdditions(self): return self.__additions
+
   def __repr__(self):
     return "Trie<{0}: Adds {1}>".format(self.__index, self.__additions)
 
   def addSeq(self, string, start=0, end=-1):
-    # print("Str ", string)
+  
     if (end < start): 
       if DEBUG: 
          print(
@@ -69,14 +80,36 @@ class Trie(object):
     if not converterFunc: return
 
     index = converterFunc(headElem)
-    if index not in self.__filledIndices: 
+    if index not in self.__indices: 
        self.__indices[index] = Trie(index)
        self.__filledIndices.add(index)
 
+    # print(self.__indices[index])
     self.__additions += 1
     if stringLen > 1:
        self.__indices[index].addSeq(string, start+1, end)
 
+  def getSuggestion(self, st):
+    # print(self.__filledIndices)
+    # This sequence hasn't yet been registered
+    if not self.search(st): return st
+
+    availableIndices = self.getAvailableSuggestions()
+    if availableIndices: 
+      frontIndex = availableIndices[0]
+      suggestion = "{}{}".format(st, frontIndex)
+      print("\033[32mSuggested {}\033[00m".format(suggestion))
+      return suggestion
+
+    else:
+      print("\033[33mNo more slots available for suggestions\033[00m" )
+
+  def getAvailableSuggestions(self):
+    freeIndices = list()
+    for i in range(RADIX_SIZE):
+      if i not in self.__filledIndices: freeIndices.append(i) 
+
+    return freeIndices
 
   def __indexResolve(self, string, start, end):
     # print("Str ", string)
@@ -115,7 +148,7 @@ class Trie(object):
 
     if (not stringLen): return False 
 
-    print(start, end, stringLen)
+    # print(start, end, stringLen)
     headElem = None
     try: # Deliberately catch the index-out of bounds exception
       headElem = string[start]
@@ -145,16 +178,24 @@ def trieFy(string):
 
 def main():
   T = trieFy('0') # Create the root
-  T.addSeq('o4eke3')
-  T.addSeq('o4eke8')
-  T.addSeq('o4eke2')
-  T.addSeq('o4eke1')
-  T.addSeq('rdeke')
-  T.addSeq('sdEke')
+  T.addSeq('01eke3a$')
+  T.addSeq('o4eke')
 
+  print("LEN ", len(radixDomain))
+  for a in radixDomain:
+    T.addSeq(a)
+
+  oldPhoto = "photo"
+  for i in range(9):
+    queried = T.getSuggestion(oldPhoto)
+    print(queried)
+    T.addSeq(queried)
 
   print([T, trieFy('b')])
-  print(T.search('o4eK3e'))
+  print(T.getAvailableSuggestions())
+  print(T.getSuggestion('bb'))
+  print(T.search('o4eKe3a'))
+  print(radixDomain)
 
 if __name__ == "__main__":
   main()
