@@ -3,7 +3,7 @@
 
 import re
 
-symbols = ['!'] #['-', '$']
+symbols = ['!', '-', '$']
 symAsStr = r'[%s!]'%("".join(symbols))
 
 symbolCompile = re.compile(symAsStr, re.UNICODE)
