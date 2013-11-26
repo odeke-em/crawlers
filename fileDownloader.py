@@ -22,7 +22,7 @@ else:
 DEBUG = False # Set to False to turn off verbosity
 
 startTimeStr = time.ctime()
-startTimeSecs = time.clock()
+startTimeSecs = time.time()
 
 dlCache = dict()
 fileNameCache = dict()
@@ -41,7 +41,7 @@ def showStats():
     dlPlurality = "download"
 
   endTimeStr = time.ctime()
-  endTimeSecs = time.clock()
+  endTimeSecs = time.time()
   timeSpent = endTimeSecs - startTimeSecs
 
   streamPrintFlush ("\033[94m")
@@ -49,7 +49,7 @@ def showStats():
     "\n\tStarted @: {st} \n\tEnded   @: {et}".format(st=startTimeStr, et=endTimeStr)
   )
   streamPrintFlush (
-    "\n\t\033[95mTotal time spent: {} [units of processor time]".format(timeSpent)
+    "\n\t\033[95mTotal time spent: {0:.3} [seconds]".format(timeSpent)
   )
   streamPrintFlush (
    "\n\tRequested {ndl} {fp}".format(fp=dlPlurality, ndl=nDownloads)
