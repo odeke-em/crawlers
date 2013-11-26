@@ -9,7 +9,6 @@ import sys
 import time
 
 from trie import Trie
-from hashlib import md5
 
 pyVersion = sys.hexversion/(1<<24)
 if pyVersion >= 3:
@@ -18,6 +17,14 @@ if pyVersion >= 3:
 else:
   import urllib as urlGetter
   encodingArgs = dict()
+
+try:
+   from hashlib import md5
+   byteFyer = bytes
+except ImportError:
+   # Support for <= python 2.4 
+   from md5 import md5
+   byteFyer = lambda st, **fmtArgs : st
 
 DEBUG = False # Set to False to turn off verbosity
 
@@ -46,17 +53,17 @@ def showStats():
 
   streamPrintFlush ("\033[94m")
   streamPrintFlush (
-    "\n\tStarted @: {st} \n\tEnded   @: {et}".format(st=startTimeStr, et=endTimeStr)
+    "\n\tStarted @: %s \n\tEnded   @: %s"%(startTimeStr, endTimeStr)
   )
   streamPrintFlush (
-    "\n\t\033[95mTotal time spent: {0:.3} [seconds]".format(timeSpent)
+    "\n\t\033[95mTotal time spent: %2.3f [seconds]"%(timeSpent)
   )
   streamPrintFlush (
-   "\n\tRequested {ndl} {fp}".format(fp=dlPlurality, ndl=nDownloads)
+   "\n\tRequested %s %s"%(dlPlurality, nDownloads)
   )
   streamPrintFlush (
-    "\n\tWrote {nfw} {fp} to memory\n".format(
-         nfw=nMemWrites, fp=filePlurality
+    "\n\tWrote %d %s to memory\n"%(
+       nMemWrites, filePlurality
     )
   )
   streamPrintFlush ("\n\033[32mBye!\033[00m\n")
@@ -139,7 +146,7 @@ def dlData(url):
  
  urlStrHash = None
  try:
-   bEncodedUrl = bytes(url, **encodingArgs)
+   bEncodedUrl = byteFyer(url, **encodingArgs)
    urlStrHash = md5(bEncodedUrl).hexdigest()
  except:
    streamPrintFlush("Cannot hash the provided URL")
@@ -253,5 +260,4 @@ if __name__ == '__main__':
     main()
   except:
     pass
-  finally:
-    showStats()
+  showStats()
