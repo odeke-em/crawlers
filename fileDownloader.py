@@ -125,7 +125,7 @@ def getFiles(url, extCompile, recursionDepth=5, httpDomain=HTTPS_DOMAIN, baseDir
     # First create that directory
     if not baseDir:
       baseDir = os.path.abspath(".")
-    cleanedPath = re.sub('[/:]','_', url)
+    cleanedPath = re.sub('[/:]+','_', url)
     fullUrlToMemPath = os.path.join(baseDir, cleanedPath)
     # print("FULLURL to Mem ", fullUrlToMemPath)
     createDir(fullUrlToMemPath)
