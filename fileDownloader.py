@@ -5,10 +5,9 @@
 # Example: ./fileDownloader.py
 
 import re
+import os
 import sys
 import time
-
-from trie import Trie
 
 pyVersion = sys.hexversion/(1<<24)
 if pyVersion >= 3:
@@ -33,11 +32,10 @@ startTimeSecs = time.time()
 
 dlCache = dict()
 fileNameCache = dict()
-fileNameTrie = Trie('0')
 
 def showStats():
   nDownloads = len(dlCache)
-  nMemWrites = fileNameTrie.getAdditions()
+  nMemWrites = len(dlCache) # fileNameTrie.getAdditions()
   
   filePlurality = "files"
   dlPlurality = "downloads"
@@ -90,7 +88,13 @@ def prepareUrl(url, httpDomain):
   # sanitizing of urls and other preparations
   pass
 
-def getFiles(url, extCompile, recursionDepth=5, httpDomain=HTTPS_DOMAIN):
+def createDir(dirPath):
+  # print("CreateDir:: ", dirPath)
+  if dirPath and not os.path.exists(dirPath):
+     os.mkdir(dirPath)
+     print("Done creating")
+
+def getFiles(url, extCompile, recursionDepth=5, httpDomain=HTTPS_DOMAIN, baseDir=None):
   #Args: url, extCompile=> A pattern object of the extension(s) to match
   #      recursionDepth => An integer that indicates how deep to scrap
   #                        Note: A negative recursion depth indicates that you want
@@ -118,8 +122,18 @@ def getFiles(url, extCompile, recursionDepth=5, httpDomain=HTTPS_DOMAIN):
     matchedFileUrls = filter(lambda s : extCompile.search(s), urls)
     plainUrls = filter(lambda s : s not in matchedFileUrls, urls)
 
+    # First create that directory
+    if not baseDir:
+      baseDir = os.path.abspath(".")
+    cleanedPath = re.sub('[/:]','_', url)
+    fullUrlToMemPath = os.path.join(baseDir, cleanedPath)
+    # print("FULLURL to Mem ", fullUrlToMemPath)
+    createDir(fullUrlToMemPath)
+
     #Time to download all the matched files 
-    dlResults = map(lambda eachUrl: dlData(eachUrl), matchedFileUrls)
+    dlResults = map(
+       lambda eachUrl: dlData(eachUrl, fullUrlToMemPath), matchedFileUrls
+    )
     resultsList = list(filter(lambda val: val, dlResults))
 
     #Report to user successful saves
@@ -129,13 +143,13 @@ def getFiles(url, extCompile, recursionDepth=5, httpDomain=HTTPS_DOMAIN):
 
     recursionDepth -= 1
     for eachUrl in plainUrls:
-      getFiles(eachUrl, extCompile, recursionDepth)
+      getFiles(eachUrl, extCompile, recursionDepth, baseDir=fullUrlToMemPath)
 
 def getAvailableName(proposedName):
   isAvailable = fileTrie.getAvailableSuggestions(proposedName)
   if isAvailable: return proposedName
 
-def dlData(url):
+def dlData(url, dirStoragePath=None):
  #Args: A url
  #Download the data from the url and write it to memory
  #Returns: True iff the data was successfully written, else: False
@@ -168,15 +182,17 @@ def dlData(url):
    if not fnameExtensionSeparate: return False # Raise error possibly
    proposedName, extension = fnameExtensionSeparate[0]
     
-   availableName = fileNameTrie.getSuggestion(proposedName)
-   if not availableName:
-      print(
-        "Sorry no alternate suggestions for %s could be proposed"%(fileName)
-      )
-      return False
+   # availableName = fileNameTrie.getSuggestion(proposedName)
+   # if not availableName:
+   #    print(
+   #      "Sorry no alternate suggestions for %s could be proposed"%(fileName)
+   #    )
+   #    return False
 
-   fileName = "%s.%s"%(availableName, extension)
-   fileNameTrie.addSeq(availableName, 0, len(availableName)) # Mark this entry as taken
+   fileName = "%s.%s"%(proposedName, extension)
+   # fileNameTrie.addSeq(availableName, 0, len(availableName)) # Mark this entry as taken
+   if dirStoragePath and os.path.exists(dirStoragePath):
+      fileName = os.path.join(dirStoragePath, fileName)
 
    streamPrintFlush("From url %s\n"%(url), sys.stderr)
 
@@ -258,6 +274,6 @@ def main():
 if __name__ == '__main__':
   try:
     main()
-  except:
+  except Exception:
     pass
   showStats()
