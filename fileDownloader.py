@@ -65,7 +65,6 @@ def showStats():
     )
   )
   streamPrintFlush ("\n\033[32mBye!\033[00m\n")
-  print(dlCache)
 
 
 ################################CONSTANTS HERE#####################################
@@ -135,7 +134,6 @@ def getFiles(url, extCompile, recursionDepth=5, httpDomain=HTTPS_DOMAIN, baseDir
     dlResults = map(
        lambda eachUrl: dlData(eachUrl, fullUrlToMemPath), matchedFileUrls
     )
-
     resultsList = list(filter(lambda val: val, dlResults))
 
     #Report to user successful saves
@@ -145,9 +143,9 @@ def getFiles(url, extCompile, recursionDepth=5, httpDomain=HTTPS_DOMAIN, baseDir
 
     recursionDepth -= 1
     for eachUrl in plainUrls:
-      yield getFiles(eachUrl, extCompile, recursionDepth, baseDir=fullUrlToMemPath)
+      getFiles(eachUrl, extCompile, recursionDepth, baseDir=fullUrlToMemPath)
 
-#def getAvailableName(proposedName):
+# def getAvailableName(proposedName):
 #  isAvailable = fileTrie.getAvailableSuggestions(proposedName)
 #  if isAvailable: return proposedName
 
@@ -270,23 +268,7 @@ def main():
         continue
 
       if extCompile:
-        fileGen = getFiles(baseUrl, extCompile, rDepth)
-        dlAccumulatedTime = 0
-        THRESHOLD_REST = 1000 # Arbitrary value
-        while True:
-           cStart = time.time()
-           try:
-             dlPoke = fileGen.__next__()
-           except StopIteration as e:
-             break
-           except Exception as e:
-             print(e)
-           finally:
-             dlAccumulatedTime += (time.time() - cStart)
-             if dlAccumulatedTime >= THRESHOLD_REST:
-                print("Sleeping for ", THRESHOLD_REST/10)
-                sleep(THRESHOLD_REST/10)
-                dlAccumulatedTime = 0
+        getFiles(baseUrl, extCompile, rDepth)
 
   streamPrintFlush("Bye..\n",sys.stderr)
 if __name__ == '__main__':
