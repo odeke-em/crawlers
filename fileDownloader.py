@@ -133,7 +133,7 @@ def getFiles(url, extCompile, recursionDepth=5, httpDomain=HTTPS_DOMAIN, baseDir
     url = "%s%s"%(httpDomain, url)
 
   try:
-    data = urlGetter.urlopen(url, timeout=DEFAULT_TIMEOUT)
+    data = urlGetter.urlopen(url) #, timeout=DEFAULT_TIMEOUT)
     if pyVersion >= 3:decodedData = data.read().decode()
     else: decodedData = data.read()
     
