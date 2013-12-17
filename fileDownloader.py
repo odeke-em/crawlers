@@ -25,20 +25,37 @@ except ImportError:
    from md5 import md5
    byteFyer = lambda st, **fmtArgs : st
 
-DEBUG = False # Set to False to turn off verbosity
+DEBUG = False# Set to False to turn off verbosity
 
 startTimeStr = time.ctime()
 startTimeSecs = time.time()
 
-dlCache = dict()
+dlCache = dict(
+  misses=dict(),
+  hits=dict()
+)
+
+hitsDict = dlCache['hits']
+missesDict = dlCache['misses']
+
 fileNameCache = dict()
 
+def generateBadUrlReport():
+  if missesDict:
+    streamPrintFlush("\033[00mWriting report to %s\033[33m\n"%(BAD_URL_REPORT_FILE))
+    with open(BAD_URL_REPORT_FILE, "a") as f:
+      for urlHash, details in missesDict.items():
+        url, badCrawlCount = details
+        f.write("%s :: %s %d\n"%(urlHash, url, badCrawlCount))
+
 def showStats():
-  nDownloads = len(dlCache)
-  nMemWrites = len(dlCache) # fileNameTrie.getAdditions()
+  nDownloads = len(hitsDict)
+  nMemWrites = len(hitsDict) # fileNameTrie.getAdditions()
+  nBadUrls = len(missesDict)
   
   filePlurality = "files"
   dlPlurality = "downloads"
+  urlPlurality = "urls"
 
   if nMemWrites == 1: 
     filePlurality = "file"
@@ -66,6 +83,9 @@ def showStats():
   )
   streamPrintFlush ("\n\033[32mBye!\033[00m\n")
 
+  if missesDict:
+    generateBadUrlReport()
+
 
 ################################CONSTANTS HERE#####################################
 DEFAULT_EXTENSIONS_REGEX = '\.(jpg|png|gif|pdf)'
@@ -76,6 +96,9 @@ END_NAME = "([^\/\s]+\.\w+)$" #The text right after the last slash '/'
 
 HTTP_DOMAIN = "http://"
 HTTPS_DOMAIN = "https://"
+
+BAD_URL_REPORT_FILE = "badUrlsReport.txt"
+DEFAULT_TIMEOUT = 5 # Seconds
 
 regexCompile = lambda regex : re.compile(regex, re.IGNORECASE)
 
@@ -110,7 +133,7 @@ def getFiles(url, extCompile, recursionDepth=5, httpDomain=HTTPS_DOMAIN, baseDir
     url = "%s%s"%(httpDomain, url)
 
   try:
-    data = urlGetter.urlopen(url)  
+    data = urlGetter.urlopen(url, timeout=DEFAULT_TIMEOUT)
     if pyVersion >= 3:decodedData = data.read().decode()
     else: decodedData = data.read()
     
@@ -121,7 +144,7 @@ def getFiles(url, extCompile, recursionDepth=5, httpDomain=HTTPS_DOMAIN, baseDir
 
     matchedFileUrls = filter(lambda s : extCompile.search(s), urls)
     plainUrls = filter(lambda s : s not in matchedFileUrls, urls)
-
+    # print(matchedFileUrls)
     # First create that directory
     if not baseDir:
       baseDir = os.path.abspath(".")
@@ -135,11 +158,23 @@ def getFiles(url, extCompile, recursionDepth=5, httpDomain=HTTPS_DOMAIN, baseDir
        lambda eachUrl: dlData(eachUrl, fullUrlToMemPath), matchedFileUrls
     )
     resultsList = list(filter(lambda val: val, dlResults))
-
     #Report to user successful saves
-    streamPrintFlush(
-     "For url %s downloaded %d files\n"%(url, len(resultsList)), sys.stderr
-    )
+    downloadCount = len(resultsList)
+    print(downloadCount) 
+    if not downloadCount:
+      # Mark this url as a bad one/miss and for the sake of crawling 
+      # not hitting dead ends, we won't crawl it anymore unless otherwise specified
+      urlScoreTuple = missesDict.get(urlHash, None)
+      badCrawlCount = 0
+
+      if urlScoreTuple and len(urlScoreTuple) != 2: 
+         badCrawlCount = (urlScoreTuple[1]) + 1 # Increment the bad crawl score
+
+      missesDict[urlHash] = (url, badCrawlCount)
+    else:
+      streamPrintFlush(
+       "For url %s downloaded %d files\n"%(url, downloadCount, sys.stderr)
+      )
 
     recursionDepth -= 1
     for eachUrl in plainUrls:
@@ -148,6 +183,15 @@ def getFiles(url, extCompile, recursionDepth=5, httpDomain=HTTPS_DOMAIN, baseDir
 # def getAvailableName(proposedName):
 #  isAvailable = fileTrie.getAvailableSuggestions(proposedName)
 #  if isAvailable: return proposedName
+
+def getHash(data):
+  try:
+    bEncodedData = byteFyer(data, **encodingArgs) 
+    hashDigest = md5(bEncodedData).hexdigest()
+  except:
+   return None
+  else:
+   return hashDigest
 
 def dlData(url, dirStoragePath=None):
  #Args: A url
@@ -158,15 +202,17 @@ def dlData(url, dirStoragePath=None):
  # Let's check the cache first
  # Computing the url's hash
  
- urlStrHash = None
- try:
-   bEncodedUrl = byteFyer(url, **encodingArgs)
-   urlStrHash = md5(bEncodedUrl).hexdigest()
- except:
+ urlStrHash = getHash(url)
+ if not urlStrHash:
    streamPrintFlush("Cannot hash the provided URL")
-   return None
-   
- alreadyIn = dlCache.get(urlStrHash, None) 
+   return
+  
+ isMiss = missesDict.get(urlStrHash, None) 
+ if isMiss:
+    if DEBUG: streamPrintFlush("Uncrawlable link: %s"%(url))
+    return None
+
+ alreadyIn = hitsDict.get(urlStrHash, None)
  if alreadyIn:
    if DEBUG: streamPrintFlush("\033[32mAlready downloaded %s\033[00m\n"%(url))
    return None
@@ -208,9 +254,9 @@ def dlData(url, dirStoragePath=None):
      
      # Let's now cache that url and mark it's content as already visited
      # where the urlString hash is the key and downloaded urls are the values
-     markedContent = dlCache.get(urlStrHash, [])
+     markedContent = hitsDict.get(urlStrHash, [])
      markedContent.append(url)
-     dlCache[urlStrHash] = markedContent
+     hitsDict[urlStrHash] = markedContent
 
      return True
 
