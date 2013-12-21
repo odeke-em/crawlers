@@ -9,6 +9,8 @@ import os
 import sys
 import time
 
+from utils import streamPrintFlush, generateBadUrlReport, showStats
+
 pyVersion = sys.hexversion/(1<<24)
 if pyVersion >= 3:
   import urllib.request as urlGetter
@@ -27,7 +29,6 @@ except ImportError:
 
 DEBUG = False# Set to False to turn off verbosity
 
-startTimeStr = time.ctime()
 startTimeSecs = time.time()
 
 dlCache = dict(
@@ -40,53 +41,6 @@ missesDict = dlCache['misses']
 
 fileNameCache = dict()
 
-def generateBadUrlReport():
-  if missesDict:
-    streamPrintFlush("\033[00mWriting report to %s\033[33m\n"%(BAD_URL_REPORT_FILE))
-    with open(BAD_URL_REPORT_FILE, "a") as f:
-      for urlHash, details in missesDict.items():
-        url, badCrawlCount = details
-        f.write("%s :: %s %d\n"%(urlHash, url, badCrawlCount))
-
-def showStats():
-  nDownloads = len(hitsDict)
-  nMemWrites = len(hitsDict) # fileNameTrie.getAdditions()
-  nBadUrls = len(missesDict)
-  
-  filePlurality = "files"
-  dlPlurality = "downloads"
-  urlPlurality = "urls"
-
-  if nMemWrites == 1: 
-    filePlurality = "file"
-  if nDownloads == 1:
-    dlPlurality = "download"
-
-  endTimeStr = time.ctime()
-  endTimeSecs = time.time()
-  timeSpent = endTimeSecs - startTimeSecs
-
-  streamPrintFlush ("\033[94m")
-  streamPrintFlush (
-    "\n\tStarted @: %s \n\tEnded   @: %s"%(startTimeStr, endTimeStr)
-  )
-  streamPrintFlush (
-    "\n\t\033[95mTotal time spent: %2.3f [seconds]"%(timeSpent)
-  )
-  streamPrintFlush (
-   "\n\tRequested %s %s"%(dlPlurality, nDownloads)
-  )
-  streamPrintFlush (
-    "\n\tWrote %d %s to memory\n"%(
-       nMemWrites, filePlurality
-    )
-  )
-  streamPrintFlush ("\n\033[32mBye!\033[00m\n")
-
-  if missesDict:
-    generateBadUrlReport()
-
-
 ################################CONSTANTS HERE#####################################
 DEFAULT_EXTENSIONS_REGEX = '\.(jpg|png|gif|pdf)'
 HTTP_HEAD_REGEX  = 'https?://'
@@ -97,14 +51,9 @@ END_NAME = "([^\/\s]+\.\w+)$" #The text right after the last slash '/'
 HTTP_DOMAIN = "http://"
 HTTPS_DOMAIN = "https://"
 
-BAD_URL_REPORT_FILE = "badUrlsReport.txt"
 DEFAULT_TIMEOUT = 5 # Seconds
 
 regexCompile = lambda regex : re.compile(regex, re.IGNORECASE)
-
-#Writes a message to a stream and flushes the stream
-streamPrintFlush = lambda msg,stream=sys.stderr: msg and stream.write(msg) and stream.flush()
-
 def prepareUrl(url, httpDomain): 
   # Args: url eg http://www.ualberta.ca, https://github.com, www.ualberta.ca
   # This will handle http domain checking eg http vs https
@@ -115,9 +64,10 @@ def createDir(dirPath):
   # print("CreateDir:: ", dirPath)
   if dirPath and not os.path.exists(dirPath):
      os.mkdir(dirPath)
-     print("Done creating")
+     if DEBUG: streamPrintFlush("Done creating %s\n"%(dirPath), sys.stderr)
 
-def getFiles(url, extCompile, recursionDepth=5, httpDomain=HTTPS_DOMAIN, baseDir=None):
+def getFiles(
+  url, extCompile, recursionDepth=5, httpDomain=HTTPS_DOMAIN, baseDir=None):
   #Args: url, extCompile=> A pattern object of the extension(s) to match
   #      recursionDepth => An integer that indicates how deep to scrap
   #                        Note: A negative recursion depth indicates that you want
@@ -131,6 +81,7 @@ def getFiles(url, extCompile, recursionDepth=5, httpDomain=HTTPS_DOMAIN, baseDir
 
   if not re.search(HTTP_HEAD_REGEX,url): 
     url = "%s%s"%(httpDomain, url)
+    print("URL ", url)
 
   try:
     data = urlGetter.urlopen(url) #, timeout=DEFAULT_TIMEOUT)
@@ -160,10 +111,11 @@ def getFiles(url, extCompile, recursionDepth=5, httpDomain=HTTPS_DOMAIN, baseDir
     resultsList = list(filter(lambda val: val, dlResults))
     #Report to user successful saves
     downloadCount = len(resultsList)
-    print(downloadCount) 
+    # print(downloadCount) 
     if not downloadCount:
       # Mark this url as a bad one/miss and for the sake of crawling 
       # not hitting dead ends, we won't crawl it anymore unless otherwise specified
+      urlHash = getHash(url)
       urlScoreTuple = missesDict.get(urlHash, None)
       badCrawlCount = 0
 
@@ -171,9 +123,10 @@ def getFiles(url, extCompile, recursionDepth=5, httpDomain=HTTPS_DOMAIN, baseDir
          badCrawlCount = (urlScoreTuple[1]) + 1 # Increment the bad crawl score
 
       missesDict[urlHash] = (url, badCrawlCount)
+      return # Cut this journey short
     else:
       streamPrintFlush(
-       "For url %s downloaded %d files\n"%(url, downloadCount, sys.stderr)
+       "For url %s downloaded %d files\n"%(url, downloadCount), sys.stderr
       )
 
     recursionDepth -= 1
@@ -320,6 +273,6 @@ def main():
 if __name__ == '__main__':
   try:
     main()
-  except Exception:
-    pass
-  showStats()
+  except Exception as e:
+    print(e)
+  showStats(startTimeSecs, hitsDict, missesDict)
