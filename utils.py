@@ -10,11 +10,11 @@ streamPrintFlush = lambda msg,stream=sys.stderr: msg and stream.write(msg) and s
 
 def generateBadUrlReport(missesDict):
   if missesDict:
-    streamPrintFlush("\033[00mWriting report to %s\033[33m\n"%(BAD_URL_REPORT_FILE))
+    streamPrintFlush("\033[33mWriting report to %s\033[00m\n"%(BAD_URL_REPORT_FILE))
     f = open(BAD_URL_REPORT_FILE, "a")
     for urlHash, details in missesDict.items():
       url, badCrawlCount = details
-      f.write("%s :: %s %d\n"%(urlHash, url, badCrawlCount))
+      f.write("%f| %s :: %s %d\n"%(time.time(), urlHash, url, badCrawlCount))
     f.close()
 
 def showStats(startTimeSecs, hitsDict, missesDict):
