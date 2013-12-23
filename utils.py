@@ -13,8 +13,8 @@ def generateBadUrlReport(missesDict):
     streamPrintFlush("\033[33mWriting report to %s\033[00m\n"%(BAD_URL_REPORT_FILE))
     f = open(BAD_URL_REPORT_FILE, "a")
     for urlHash, details in missesDict.items():
-      url, badCrawlCount = details
-      f.write("%f| %s :: %s %d\n"%(time.time(), urlHash, url, badCrawlCount))
+      url, badCrawlCount, dateEpoch = details
+      f.write("%f| %s :: %s %d\n"%(dateEpoch, urlHash, url, badCrawlCount))
     f.close()
 
 def showStats(startTimeSecs, hitsDict, missesDict):
@@ -57,7 +57,7 @@ def showStats(startTimeSecs, hitsDict, missesDict):
 
 def main():
   misses = {
-    'BiOmXeKyrxo' : ('www.youtube.com/watch?v=BiOmXeKyrxo', 10)
+    'BiOmXeKyrxo' : ('www.youtube.com/watch?v=BiOmXeKyrxo', 10,time.time())
   }
 
   generateBadUrlReport(misses)

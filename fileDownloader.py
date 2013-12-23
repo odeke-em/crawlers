@@ -122,7 +122,7 @@ def getFiles(
       if urlScoreTuple and len(urlScoreTuple) != 2: 
          badCrawlCount = (urlScoreTuple[1]) + 1 # Increment the bad crawl score
 
-      missesDict[urlHash] = (url, badCrawlCount)
+      missesDict[urlHash] = (url, badCrawlCount, time.time())
       return # Cut this journey short
     else:
       streamPrintFlush(
