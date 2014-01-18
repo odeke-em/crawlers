@@ -53,7 +53,7 @@ HTTPS_DOMAIN = "https://"
 
 DEFAULT_TIMEOUT = 5 # Seconds
 
-regexCompile = lambda regex : re.compile(regex, re.IGNORECASE)
+regexCompile = lambda regex : re.compile(regex, re.IGNORECASE|re.UNICODE)
 def prepareUrl(url, httpDomain): 
   # Args: url eg http://www.ualberta.ca, https://github.com, www.ualberta.ca
   # This will handle http domain checking eg http vs https
@@ -247,13 +247,13 @@ def main():
 
       lineIn, eofState = readFromStream()
       if eofState: break
-
+      
       rDepth = int(lineIn.strip("\n"))
 
-      if not extensions:
-        extCompile = regexCompile(DEFAULT_EXTENSIONS_REGEX)
-      else:
-        extCompile = regexCompile(extensions)
+      formedRegex =\
+             "\.(%s)"%(extensions) if extensions else DEFAULT_EXTENSIONS_REGEX
+
+      extCompile = regexCompile(formedRegex)
 
     except ValueError:
       streamPrintFlush("Recursion depth must be an integer\n", sys.stderr)
