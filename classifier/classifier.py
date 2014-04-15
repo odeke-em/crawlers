@@ -117,7 +117,7 @@ def createClusters(contentDict, clusterCount=2):
             if key is not randPick:
                 stDict = rankWords(randPick, key)
                 rank = rankStatDict(stDict)
-                percentRank = rank/maxRank
+                percentRank = (float)(rank)/maxRank
                 if percentRank >= 0.5:
                     pickList.append(DynaItem(
                         dict(key=key, rank=percentRank)
