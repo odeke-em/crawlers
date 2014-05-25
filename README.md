@@ -14,9 +14,13 @@ downloaded, or queued up on the cloud for workers to
 actually perform the downloads.
 
 + To use the local based downloader:
+
     ++ Works on any version of Python >= 2.X
-    python fileDownloader.py # Works on any >= Py2.X
+
+    python fileDownloader.py
 
 + To use the cloud based job queuer:
+
     ++ So far built for Python3.X
+
     python3 targetForCloud.py
