@@ -1,0 +1,3 @@
+[submodule "resty"]
+	path = resty
+	url = git@github.com:odeke-em/resty.git
