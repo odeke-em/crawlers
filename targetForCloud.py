@@ -162,7 +162,11 @@ def main():
       lineIn, eofState = readFromStream()
       if eofState: break
 
-      baseUrl = lineIn.strip("\n")
+      if lineIn:
+        baseUrl = lineIn.strip("\n")
+
+      else:
+        continue
 
       streamPrintFlush(
        "Your extensions separated by '|' eg png|html: ", sys.stderr
@@ -178,8 +182,11 @@ def main():
 
       lineIn, eofState = readFromStream()
       if eofState: break
-      
-      rDepth = int(lineIn.strip("\n"))
+
+      elif lineIn:
+        rDepth = int(lineIn.strip("\n") or 1)
+      else:
+        rDepth = 1
 
       formedRegex = extensionify(extensions or DEFAULT_EXTENSIONS_REGEX)
 
