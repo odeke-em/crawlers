@@ -10,8 +10,6 @@ import time
 from resty import restDriver
 from utils import streamPrintFlush, generateBadUrlReport, showStats
 
-from utils import streamPrintFlush, generateBadUrlReport, showStats
-
 pyVersion = sys.hexversion/(1<<24)
 if pyVersion >= 3:
   import urllib.request as urlGetter
@@ -153,7 +151,7 @@ def readFromStream(stream=sys.stdin):
     return lineIn, EOFState
 
 def main():
-  wDriver = WorkerDriver('http://127.0.0.1', '8000')
+  wDriver = WorkerDriver('http://192.168.1.83', '8000')
   while True:
     try:
       streamPrintFlush(
