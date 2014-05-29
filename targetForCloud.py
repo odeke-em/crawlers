@@ -32,6 +32,7 @@ HTTP_DOMAIN = "http://"
 HTTPS_DOMAIN = "https://"
 
 DEFAULT_TIMEOUT = 5 # Seconds
+__LOCAL_CACHE = dict()
 
 regexCompile = lambda regex : re.compile(regex, re.IGNORECASE|re.UNICODE)
 
@@ -79,7 +80,7 @@ def getFiles(
 
     #Time to download all the matched files 
     dlResults = map(
-       lambda eachUrl: pushUpJob(eachUrl, rDriver, url), matchedFileUrls
+       lambda eachUrl: pushUpJob(eachUrl, rDriver, url), set(matchedFileUrls)
     )
     resultsList = list(filter(lambda val: val, dlResults))
 
@@ -120,12 +121,25 @@ class WorkerDriver:
         print('WorkerId', self.__workerId)
 
 def pushUpJob(url, rDriver, parentUrl=''):
-    # Query if this file is already present 
-    query = restDriver.produceAndParse(rDriver.restDriver.getJobs, message=url)
-    if not (hasattr(query, 'keys') and query.get('data', None) and len(query['data'])):
-        print(rDriver.restDriver.newJob(
-            message=url, author=rDriver.getDefaultAuthor(), assignedWorker_id=rDriver.getWorkerId(), metaData=parentUrl
-        ))
+    # First query if this item was already seen by this worker
+    if __LOCAL_CACHE.get(url, None) is None:
+
+        # Query if this file is already present 
+    
+        query = restDriver.produceAndParse(rDriver.restDriver.getJobs, message=url)
+        if not (hasattr(query, 'keys') and query.get('data', None) and len(query['data'])):
+            saveResponse = rDriver.restDriver.newJob(
+                message=url, assignedWorker_id=rDriver.getWorkerId(),
+                metaData=parentUrl, author=rDriver.getDefaultAuthor()
+            )
+            if saveResponse.get('status_code', 400) == 200 and int(saveResponse.get('id', -1)) != -1:
+                __LOCAL_CACHE[url] = True
+        else:
+            print('Was submitted to the cloud by another crawler', url)
+            __LOCAL_CACHE[url] = True
+
+    else:
+        print('Already locally memoized as submitted to cloud', url)
 
 def readFromStream(stream=sys.stdin):
   try:
