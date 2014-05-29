@@ -90,9 +90,19 @@ def getFiles(
 class WorkerDriver:
     def __init__(self, ip, port):
         self.__workerId = -1
-        self.restDriver = restDriver.RestDriver(ip, port)
         self.getDefaultAuthor = restDriver.getDefaultAuthor 
+        self.initRestDriver(ip, port)
+
         self.initWorker()
+
+    def initRestDriver(self, ip, port):
+        self.restDriver = restDriver.RestDriver(ip, port)
+
+        wHandler = self.restDriver.registerLiason('Worker', '/jobTable/workerHandler')
+        assert(wHandler)
+
+        jHandler = self.restDriver.registerLiason('Job', '/jobTable/jobHandler')
+        assert(jHandler)
 
     def getWorkerId(self):
         return self.__workerId
@@ -147,8 +157,8 @@ def main():
       extensions = lineIn.strip("\n")
       
       streamPrintFlush(
-        "\nRecursion Depth(a negative depth indicates you want script to go as far): "
-      ,sys.stderr)
+        "\nRecursion Depth(a negative depth indicates you want script to go as far): ", sys.stderr
+      )
 
       lineIn, eofState = readFromStream()
       if eofState: break
