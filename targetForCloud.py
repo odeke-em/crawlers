@@ -132,7 +132,9 @@ def pushUpJob(url, rDriver, parentUrl=''):
                 message=url, assignedWorker_id=rDriver.getWorkerId(),
                 metaData=parentUrl, author=rDriver.getDefaultAuthor()
             )
-            if saveResponse.get('status_code', 400) == 200 and int(saveResponse.get('id', -1)) != -1:
+
+            if saveResponse.get('status_code', 400) == 200:
+                print('Successfully submitted', url, 'to the cloud')
                 __LOCAL_CACHE[url] = True
         else:
             print('Was submitted to the cloud by another crawler', url)
