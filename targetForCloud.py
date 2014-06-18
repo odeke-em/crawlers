@@ -151,7 +151,8 @@ def readFromStream(stream=sys.stdin):
     return lineIn, EOFState
 
 def main():
-  wDriver = WorkerDriver('http://192.168.1.83', '8000')
+  args, options = restDriver.cliParser()
+  wDriver = WorkerDriver(args.ip, args.port)
   while True:
     try:
       streamPrintFlush(
