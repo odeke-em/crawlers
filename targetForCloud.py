@@ -8,8 +8,8 @@ import sys
 import time
 
 from resty import restDriver
-from routing import RouterManager
 from utils import streamPrintFlush, generateBadUrlReport, showStats
+from routeUtils import WorkerDriver, Router
 
 pyVersion = sys.hexversion/(1<<24)
 if pyVersion >= 3:
@@ -36,7 +36,7 @@ __LOCAL_CACHE = dict()
 regexCompile = lambda regex : re.compile(regex, re.IGNORECASE|re.UNICODE)
 
 def getFiles(
-  url, extCompile, rDriver, recursionDepth=5, httpDomain=HTTPS_DOMAIN
+  url, extCompile, router, recursionDepth=5, httpDomain=HTTPS_DOMAIN
 ):
   # Args: url, extCompile=> A pattern object of the extension(s) to match
   #      recursionDepth => An integer that indicates how deep to scrap
@@ -79,84 +79,20 @@ def getFiles(
 
     #Time to download all the matched files 
     dlResults = map(
-       lambda eachUrl: pushUpJob(eachUrl, rDriver, url), set(matchedFileUrls)
+       lambda eachUrl: pushUpJob(eachUrl, router, url), set(matchedFileUrls)
     )
     resultsList = list(filter(lambda val: val, dlResults))
 
     recursionDepth -= 1
     for eachUrl in plainUrls:
-      getFiles(eachUrl, extCompile, rDriver, recursionDepth)
+      getFiles(eachUrl, extCompile, router, recursionDepth)
 
-class WorkerDriver:
-    def __init__(self, ip, port):
-        self.__workerId = -1
-        self.getDefaultAuthor = restDriver.getDefaultAuthor 
-        self.initRestDriver(ip, port)
-
-        self.initWorker()
-        self.initRouting()
-
-    def initRestDriver(self, ip, port):
-        self.restDriver = restDriver.RestDriver(ip, port)
-
-        wHandler = self.restDriver.registerLiason('Worker', '/jobTable/workerHandler')
-        assert(wHandler)
-
-        jHandler = self.restDriver.registerLiason('Job', '/jobTable/jobHandler')
-        assert(jHandler)
-
-        rHandler = self.restDriver.registerLiason('Route', '/jobTable/routeHandler')
-        assert(rHandler)
-
-    def initRouting(self):
-        rResponse = restDriver.produceAndParse(
-            self.restDriver.getRoutes, address=self.restDriver.getBaseUrl()
-        )
-        if rResponse.get('status_code', 400) == 200 and rResponse.get('data', None):
-            print('Already registered', self.restDriver.getBaseUrl())
-        else:
-            cResponse = restDriver.produceAndParse(
-                self.restDriver.newRoute, address=self.restDriver.getBaseUrl()
-            )
-            print(cResponse)
-
-        # Let's now get the list of all present routes
-        routeManifest = restDriver.produceAndParse(
-            self.restDriver.getRoutes, select='address'
-        )
-        if routeManifest.get('status_code', 400) == 200:
-            data = routeManifest.get('data', None) or [] 
-            
-            addrList = []
-            for item in data:
-                addr = item.get('address', None)
-                if addr:
-                    addrList.append(addr)
-
-            print('addrList', addrList)
-            
-
-    def getWorkerId(self):
-        return self.__workerId
-
-    def initWorker(self):
-        qResponse = restDriver.produceAndParse(self.restDriver.getWorkers, purpose='Crawling', select='id', format='short')
-        if qResponse.get('data', None):
-            print('Present workers', qResponse)
-            self.__workerId = qResponse['data'][0].get('id', -1)
-        else:
-            cResponse = restDriver.produceAndParse(self.restDriver.newWorker, purpose='Crawling')
-            print('Created worker response', cResponse)
-            self.__workerId = cResponse.get('data', [{'id', -1}]).get('id', -1)
-
-        print('WorkerId', self.__workerId)
-
-def pushUpJob(url, rDriver, parentUrl=''):
+def pushUpJob(url, router, parentUrl=''):
     # First query if this item was already seen by this worker
     if __LOCAL_CACHE.get(url, None) is None:
 
         # Query if this file is already present 
-    
+        rDriver = router.getWorkerDriver(url)
         query = restDriver.produceAndParse(rDriver.restDriver.getJobs, message=url)
         if not (hasattr(query, 'keys') and query.get('data', None) and len(query['data'])):
             saveResponse = rDriver.restDriver.newJob(
@@ -185,9 +121,9 @@ def readFromStream(stream=sys.stdin):
 
 def main():
   args, options = restDriver.cliParser()
+
   # Route manager
-  wDriver = WorkerDriver(args.ip, args.port)
-  
+  router = Router(['http://127.0.0.1:8000', 'http://127.0.0.1:8007', 'http://192.168.1.64:8000'])
   while True:
     try:
       streamPrintFlush(
@@ -240,7 +176,7 @@ def main():
         continue
 
       if extCompile:
-        getFiles(baseUrl, extCompile, wDriver, rDepth)
+        getFiles(baseUrl, extCompile, router, rDepth)
 
   streamPrintFlush("Bye..\n",sys.stderr)
 if __name__ == '__main__':
