@@ -8,6 +8,7 @@ import sys
 import time
 
 from resty import restDriver
+from routing import RouterManager
 from utils import streamPrintFlush, generateBadUrlReport, showStats
 
 pyVersion = sys.hexversion/(1<<24)
@@ -93,6 +94,7 @@ class WorkerDriver:
         self.initRestDriver(ip, port)
 
         self.initWorker()
+        self.initRouting()
 
     def initRestDriver(self, ip, port):
         self.restDriver = restDriver.RestDriver(ip, port)
@@ -102,6 +104,37 @@ class WorkerDriver:
 
         jHandler = self.restDriver.registerLiason('Job', '/jobTable/jobHandler')
         assert(jHandler)
+
+        rHandler = self.restDriver.registerLiason('Route', '/jobTable/routeHandler')
+        assert(rHandler)
+
+    def initRouting(self):
+        rResponse = restDriver.produceAndParse(
+            self.restDriver.getRoutes, address=self.restDriver.getBaseUrl()
+        )
+        if rResponse.get('status_code', 400) == 200 and rResponse.get('data', None):
+            print('Already registered', self.restDriver.getBaseUrl())
+        else:
+            cResponse = restDriver.produceAndParse(
+                self.restDriver.newRoute, address=self.restDriver.getBaseUrl()
+            )
+            print(cResponse)
+
+        # Let's now get the list of all present routes
+        routeManifest = restDriver.produceAndParse(
+            self.restDriver.getRoutes, select='address'
+        )
+        if routeManifest.get('status_code', 400) == 200:
+            data = routeManifest.get('data', None) or [] 
+            
+            addrList = []
+            for item in data:
+                addr = item.get('address', None)
+                if addr:
+                    addrList.append(addr)
+
+            print('addrList', addrList)
+            
 
     def getWorkerId(self):
         return self.__workerId
@@ -152,7 +185,9 @@ def readFromStream(stream=sys.stdin):
 
 def main():
   args, options = restDriver.cliParser()
+  # Route manager
   wDriver = WorkerDriver(args.ip, args.port)
+  
   while True:
     try:
       streamPrintFlush(

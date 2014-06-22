@@ -1,3 +1,6 @@
 [submodule "resty"]
 	path = resty
 	url = git@github.com:odeke-em/resty.git
+[submodule "routing"]
+	path = routing
+	url = git@github.com:odeke-em/routing.git
