@@ -123,7 +123,10 @@ def main():
   args, options = restDriver.cliParser()
 
   # Route manager
-  router = Router(['http://127.0.0.1:8000', 'http://127.0.0.1:8007', 'http://192.168.1.64:8000'])
+  router = Router([
+    'http://192.168.1.110:8000', 'http://192.168.1.64:8000',
+    'http://192.168.1.110:8007', 'http://192.168.1.64:8007'
+  ])
   while True:
     try:
       streamPrintFlush(
