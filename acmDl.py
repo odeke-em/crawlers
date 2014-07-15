@@ -1,23 +1,25 @@
-#!/usr/bin/python3
-#Author: Emmanuel Odeke <odeke@ualberta.ca>
-#        Download the problem sets for the ACM finals for various years
+#!/usr/bin/env python3
+# Author: Emmanuel Odeke <odeke@ualberta.ca>
+#         Download the problem sets for the ACM finals for various years
 
-import urllib.request, re
+import re, urllib.request
 
-probsCompile = re.compile('"(http://[^"]*/problems/[^"]*\.pdf)"')
+nameCompile = re.compile(".*/problems/(.*pdf)", re.UNICODE|re.IGNORECASE)
+probsCompile = re.compile(
+    '"(http://[^"]*/problems/[^"]*\.pdf)"', re.UNICODE|re.IGNORECASE
+)
 
 data = urllib.request.urlopen("http://www.acmicpc.org/worldfinals/problems")
-readData = data.read().decode()
-readData = re.sub("[\n\t]", "", readData) # Take out tabs and newlines
-
+readData = re.sub("[\n\t]", "", data.read().decode()) # Take out tabs and newlines
 matches = probsCompile.findall(readData)
 
 for match in matches:
-    nameQuery = re.search(".*/problems/(.*pdf)", match)
+    nameQuery = nameCompile.search(match)
     if nameQuery:
-       dlData = urllib.request.urlopen(match)
-       outData = dlData.read()
-       fileName = (nameQuery.groups(1)[0])
-
-       with open(fileName, 'wb') as f:
-         f.write(outData) and print("%s written to memory"%(fileName))
+        fileName = nameQuery.groups(1)[0]
+        if not fileName:
+            print('Could not extract a name from', match)
+        else:
+            dlData = urllib.request.urlopen(match)
+            with open(fileName, 'wb') as f:
+                f.write(dlData.read()) and print("%s written to memory"%(fileName))
