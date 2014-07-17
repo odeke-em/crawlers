@@ -4,112 +4,74 @@
 # Tested on, and supporting versions: Python2.X and above
 # Example: ./fileDownloader.py
 
-import re
 import os
 import sys
 import time
 
-from utils import streamPrintFlush, generateBadUrlReport, showStats
+import utils
 
-pyVersion = sys.hexversion/(1<<24)
-if pyVersion >= 3:
-  import urllib.request as urlGetter
-  encodingArgs = dict(encoding='utf-8')
-else:
-  import urllib as urlGetter
-  encodingArgs = dict()
-
-try:
-   from hashlib import md5
-   byteFyer = bytes
-except ImportError:
-   # Support for <= python 2.4 
-   from md5 import md5
-   byteFyer = lambda st, **fmtArgs : st
-
-DEBUG = False# Set to False to turn off verbosity
-
+DEBUG = True # Set to False to turn off verbosity
 startTimeSecs = time.time()
 
-dlCache = dict(
-  misses=dict(),
-  hits=dict()
-)
+hitsDict = {}
+missesDict = {}
+dlCache = dict(misses=missesDict, hits=hitsDict)
 
-hitsDict = dlCache['hits']
-missesDict = dlCache['misses']
-
-fileNameCache = dict()
-
-################################CONSTANTS HERE#####################################
-DEFAULT_EXTENSIONS_REGEX = '\.(jpg|png|gif|pdf)'
-HTTP_HEAD_REGEX  = 'https?://'
-URL_REGEX = '(%s[^\s"]+)'%(HTTP_HEAD_REGEX)
-REPEAT_HTTP = "%s{2,}"%(HTTP_HEAD_REGEX)
-END_NAME = "([^\/\s]+\.\w+)$" #The text right after the last slash '/'
-
-HTTP_DOMAIN = "http://"
-HTTPS_DOMAIN = "https://"
-
-DEFAULT_TIMEOUT = 5 # Seconds
-
-regexCompile = lambda regex : re.compile(regex, re.IGNORECASE|re.UNICODE)
-def prepareUrl(url, httpDomain): 
-  # Args: url eg http://www.ualberta.ca, https://github.com, www.ualberta.ca
-  # This will handle http domain checking eg http vs https
-  # sanitizing of urls and other preparations
-  pass
-
-def createDir(dirPath):
-  # print("CreateDir:: ", dirPath)
-  if dirPath and not os.path.exists(dirPath):
-     os.mkdir(dirPath)
-     if DEBUG: streamPrintFlush("Done creating %s\n"%(dirPath), sys.stderr)
-
-def getFiles(
-  url, extCompile, recursionDepth=5, httpDomain=HTTPS_DOMAIN, baseDir=None):
-  #Args: url, extCompile=> A pattern object of the extension(s) to match
+def getFiles(url, extCompile, recursionDepth=5, httpDomain=utils.HTTPS_DOMAIN, baseDir=None):
+  # Args: url, extCompile=> A pattern object of the extension(s) to match
   #      recursionDepth => An integer that indicates how deep to scrap
   #                        Note: A negative recursion depth indicates that you want
   #                          to keep crawling as far as the program can go
-  if not recursionDepth: return
-  if not hasattr(extCompile, 'search'):
-    streamPrintFlush(
+  if not recursionDepth:
+    return
+  elif not hasattr(extCompile, 'search'):
+    utils.streamPrintFlush(
      "Expecting a pattern object/result of re.compile(..) for arg 'extCompile'\n"
     , sys.stderr)
     return
 
-  if not re.search(HTTP_HEAD_REGEX,url): 
+  if not utils.httpHeadCompile.search(url): 
     url = "%s%s"%(httpDomain, url)
-    print("URL ", url)
 
   try:
-    data = urlGetter.urlopen(url) #, timeout=DEFAULT_TIMEOUT)
-    if pyVersion >= 3:decodedData = data.read().decode()
-    else: decodedData = data.read()
-    
-  except Exception: pass
+    data = utils.urlGetter.urlopen(url)
+    if utils.pyVersion >= 3:
+      decodedData = data.read().decode()
+    else:
+      decodedData = data.read()
+  except Exception:
+    return
   else:
-    urls = re.findall(URL_REGEX, decodedData, re.MULTILINE)
-    urls = list(map(lambda s : re.sub(REPEAT_HTTP,HTTP_HEAD_REGEX,s), urls))
+    urls = utils.urlCompile.findall(decodedData)
+    urls = list(map(lambda s: utils.repeatHttpHeadCompile.sub(utils.HTTP_HEAD_REGEX, s), urls))
 
-    matchedFileUrls = filter(lambda s : extCompile.search(s), urls)
-    plainUrls = filter(lambda s : s not in matchedFileUrls, urls)
-    # print(matchedFileUrls)
-    # First create that directory
+    plainUrls = []
+    matchedFileUrls = []
+
+    for u in urls:
+        pathSelector = plainUrls
+        regSearch = extCompile.search(u)
+        if regSearch:
+            g = regSearch.groups(1)
+            u = '%s.%s'%(g[0], g[1])
+            pathSelector = matchedFileUrls
+
+        pathSelector.append(u)
+
     if not baseDir:
       baseDir = os.path.abspath(".")
-    cleanedPath = re.sub('[/:]+','_', url)
-    fullUrlToMemPath = os.path.join(baseDir, cleanedPath)
-    # print("FULLURL to Mem ", fullUrlToMemPath)
-    createDir(fullUrlToMemPath)
 
-    #Time to download all the matched files 
-    dlResults = map(
-       lambda eachUrl: dlData(eachUrl, fullUrlToMemPath), matchedFileUrls
-    )
+    fullUrlToMemPath = os.path.join(baseDir, utils.pathCleanseCompile.sub('_', url))
+    utils.createDir(fullUrlToMemPath)
+
+    # Time to download all the matched files 
+    dlResults = []
+    for eachUrl in matchedFileUrls:
+        dlResults.append(dlData(eachUrl, fullUrlToMemPath))
+
     resultsList = list(filter(lambda val: val, dlResults))
-    #Report to user successful saves
+
+    # Report to user successful saves
     downloadCount = len(resultsList)
     # print(downloadCount) 
     if not downloadCount:
@@ -125,7 +87,7 @@ def getFiles(
       missesDict[urlHash] = (url, badCrawlCount, time.time())
       return # Cut this journey short
     else:
-      streamPrintFlush(
+      utils.streamPrintFlush(
        "For url %s downloaded %d files\n"%(url, downloadCount), sys.stderr
       )
 
@@ -133,52 +95,51 @@ def getFiles(
     for eachUrl in plainUrls:
       getFiles(eachUrl, extCompile, recursionDepth, baseDir=fullUrlToMemPath)
 
-# def getAvailableName(proposedName):
-#  isAvailable = fileTrie.getAvailableSuggestions(proposedName)
-#  if isAvailable: return proposedName
-
 def getHash(data):
   try:
-    bEncodedData = byteFyer(data, **encodingArgs) 
-    hashDigest = md5(bEncodedData).hexdigest()
-  except:
+    bEncodedData = utils.byteFyer(data, **utils.encodingArgs) 
+    hashDigest = utils.md5(bEncodedData).hexdigest()
+  except Exception:
    return None
   else:
    return hashDigest
 
 def dlData(url, dirStoragePath=None):
- #Args: A url
- #Download the data from the url and write it to memory
- #Returns: True iff the data was successfully written, else: False
- if not (url and re.search(HTTP_HEAD_REGEX,url)): return None
+ # Args: A url
+ # Download the data from the url and write it to memory
+ # Returns: True iff the data was successfully written, else: False
+ if not (url and utils.httpHeadCompile.search(url)):
+    return None
 
- # Let's check the cache first
- # Computing the url's hash
- 
  urlStrHash = getHash(url)
  if not urlStrHash:
-   streamPrintFlush("Cannot hash the provided URL")
+   utils.streamPrintFlush("Cannot hash the provided URL")
    return
   
  isMiss = missesDict.get(urlStrHash, None) 
  if isMiss:
-    if DEBUG: streamPrintFlush("Uncrawlable link: %s"%(url))
+    if DEBUG:
+      utils.streamPrintFlush("Uncrawlable link: %s"%(url))
     return None
 
  alreadyIn = hitsDict.get(urlStrHash, None)
  if alreadyIn:
-   if DEBUG: streamPrintFlush("\033[32mAlready downloaded %s\033[00m\n"%(url))
+   if DEBUG: utils.streamPrintFlush("\033[32mAlready downloaded %s\033[00m\n"%(url))
    return None
 
- try: data = urlGetter.urlopen(url)
+ try:
+   data = utils.urlGetter.urlopen(url)
  except Exception: return False
  else:
-   fileSearch = re.findall(END_NAME, url)
-   if not fileSearch : return False
+   fileSearch = utils.endNameCompile.findall(url)
+   if not fileSearch:
+     return False
 
    fileName = fileSearch[0]
-   fnameExtensionSeparate = re.findall("(.*)\.(\w+)$", fileName, re.UNICODE)
-   if not fnameExtensionSeparate: return False # Raise error possibly
+   fnameExtensionSeparate = utils.fnameCompile.findall(fileName)
+   if not fnameExtensionSeparate:
+     return False # Raise error possibly
+
    proposedName, extension = fnameExtensionSeparate[0]
     
    # availableName = fileNameTrie.getSuggestion(proposedName)
@@ -190,20 +151,21 @@ def dlData(url, dirStoragePath=None):
 
    fileName = "%s.%s"%(proposedName, extension)
    # fileNameTrie.addSeq(availableName, 0, len(availableName)) # Mark this entry as taken
+
    if dirStoragePath and os.path.exists(dirStoragePath):
       fileName = os.path.join(dirStoragePath, fileName)
 
-   streamPrintFlush("From url %s\n"%(url), sys.stderr)
+   utils.streamPrintFlush("From url %s\n"%(url), sys.stderr)
 
    try:
-     f = open(fileName,'wb')
+     f = open(fileName, 'wb')
      f.write(data.read())
      f.close()
    except: 
-     streamPrintFlush("Failed to write %s to memory\n"%(fileName), sys.stderr) 
+     utils.streamPrintFlush("Failed to write %s to memory\n"%(fileName), sys.stderr) 
      return False
    else:
-     streamPrintFlush("Wrote %s to memory\n"%(fileName), sys.stderr)
+     utils.streamPrintFlush("Wrote %s to memory\n"%(fileName), sys.stderr)
      
      # Let's now cache that url and mark it's content as already visited
      # where the urlString hash is the key and downloaded urls are the values
@@ -225,7 +187,7 @@ def readFromStream(stream=sys.stdin):
 def main():
   while True:
     try:
-      streamPrintFlush(
+      utils.streamPrintFlush(
         "\nTarget Url: eg [www.example.org or http://www.h.com] ", sys.stderr
       )
       lineIn, eofState = readFromStream()
@@ -233,7 +195,7 @@ def main():
 
       baseUrl = lineIn.strip("\n")
 
-      streamPrintFlush(
+      utils.streamPrintFlush(
        "Your extensions separated by '|' eg png|html: ", sys.stderr
       )
 
@@ -241,7 +203,7 @@ def main():
       if eofState: break
       extensions = lineIn.strip("\n")
       
-      streamPrintFlush(
+      utils.streamPrintFlush(
         "\nRecursion Depth(a negative depth indicates you want script to go as far): "
       ,sys.stderr)
 
@@ -250,15 +212,13 @@ def main():
       
       rDepth = int(lineIn.strip("\n"))
 
-      formedRegex =\
-             "\.(%s)"%(extensions) if extensions else DEFAULT_EXTENSIONS_REGEX
-
-      extCompile = regexCompile(formedRegex)
+      formedRegex = utils.extensionify(extensions or utils.DEFAULT_EXTENSIONS_REGEX)
+      extCompile = utils.regexCompile(formedRegex)
 
     except ValueError:
-      streamPrintFlush("Recursion depth must be an integer\n", sys.stderr)
+      utils.streamPrintFlush("Recursion depth must be an integer\n", sys.stderr)
     except KeyboardInterrupt:
-      streamPrintFlush("Ctrl-C applied. Exiting now..\n",sys.stderr)
+      utils.streamPrintFlush("Ctrl-C applied. Exiting now..\n",sys.stderr)
       break
     except Exception:
       continue
@@ -269,10 +229,11 @@ def main():
       if extCompile:
         getFiles(baseUrl, extCompile, rDepth)
 
-  streamPrintFlush("Bye..\n",sys.stderr)
+  utils.streamPrintFlush("Bye..\n",sys.stderr)
 if __name__ == '__main__':
   try:
     main()
   except Exception:
     pass
-  showStats(startTimeSecs, hitsDict, missesDict)
+  finally:
+    utils.showStats(startTimeSecs, hitsDict, missesDict)

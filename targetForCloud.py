@@ -1,80 +1,52 @@
 #!/usr/bin/python3
 # Author: Emmanuel Odeke <odeke@ualberta.ca>
-# Scrap any website for files with target extensions eg pdf, png, gif etc
+# Sharded version of 'fileDownloader.py' except that it submits urls to a jobTable
+# of which the urls will later be indexed accordingly
 
-import re
-import os
 import sys
-import time
 
+import utils
 from resty import restDriver
-from utils import streamPrintFlush, generateBadUrlReport, showStats, robotsTxt
 from routeUtils import WorkerDriver, Router
-
-pyVersion = sys.hexversion/(1<<24)
-if pyVersion >= 3:
-  import urllib.request as urlGetter
-  encodingArgs = dict(encoding='utf-8')
-else:
-  import urllib as urlGetter
-  encodingArgs = dict()
-
-############################# CONSTANTS HERE ##################################
-extensionify = lambda extStr: '([^\s]+)\.(%s)'%(extStr)
-DEFAULT_EXTENSIONS_REGEX = 'jpg|png|gif|pdf'
-HTTP_HEAD_REGEX  = 'https?://'
-URL_REGEX = '(%s[^\s"]+)'%(HTTP_HEAD_REGEX)
-REPEAT_HTTP = "%s{2,}"%(HTTP_HEAD_REGEX)
-END_NAME = "([^\/\s]+\.\w+)$" #The text right after the last slash '/'
-
-HTTP_DOMAIN = "http://"
-HTTPS_DOMAIN = "https://"
 
 __LOCAL_CACHE = dict()
 __ROBOTS_TXT_CACHE__ = dict()
 
 DEFAULT_TIMEOUT = 5 # Seconds
-regexCompile = lambda regex: re.compile(regex, re.IGNORECASE|re.UNICODE)
-
-httpHeadCompile = regexCompile(HTTP_HEAD_REGEX)
-repeatHttpHeadCompile = regexCompile(REPEAT_HTTP)
-urlCompile = re.compile(URL_REGEX, re.MULTILINE|re.IGNORECASE|re.UNICODE)
-
-ROBOT_CAN_CRAWL = 0
-ROBOT_SUCCESS = 1
-ROBOT_ERR = 2
 
 def getRobotsFile(url):
-  robotsUrl = robotsTxt(url)
+  robotsUrl = utils.robotsTxt(url)
   retr = __ROBOTS_TXT_CACHE__.get(robotsUrl, None)
   if retr is None:
     retr = memoizeRobotsFile(robotsUrl)
 
   return retr
 
-def memoizeRobotsFile(url):
-  res = ROBOT_ERR
+def memoizeRobotsFile(roboUrl):
+  res = utils.ROBOT_ERR
   try:
-    robotFile = urlGetter.urlopen(url)
-  except Exception as e:
-    print('e', e)
+    robotFile = utils.urlGetter.urlopen(roboUrl)
+  except Exception:
+    utils.streamPrintFlush('Exception occured during extraction of robots file')
   else:
-    data = robotFile.read().decode()
-    '''
-    # TODO: Actually parse the file
-    splitD = data.split('\n')
-    for l in splitD:
+    if not robotFile.length: # No such file exists
+      res = utils.ROBOT_CAN_CRAWL
+    else:
+      data = robotFile.read().decode()
+      '''
+      # TODO: Actually parse the file
+      splitD = data.split('\n')
+      for l in splitD:
         if l:
             pass
-    '''
-    res = ROBOT_CAN_CRAWL # TODO: Toggle and get value if that url can be visited
-    
+      '''
+      res = utils.ROBOT_CAN_CRAWL # TODO: Toggle and get value if that url can be visited
 
-  __ROBOTS_TXT_CACHE__[url] = res
+  __ROBOTS_TXT_CACHE__[roboUrl] = res
   
   return res
 
-def getFiles(url, extCompile, router, recursionDepth=5, httpDomain=HTTPS_DOMAIN):
+def getFiles(url, extCompile, router, recursionDepth=5, httpDomain=utils.HTTPS_DOMAIN):
   # Args: url, extCompile=> A pattern object of the extension(s) to match
   #      recursionDepth => An integer that indicates how deep to scrap
   #                        Note: A negative recursion depth indicates that you want
@@ -82,28 +54,26 @@ def getFiles(url, extCompile, router, recursionDepth=5, httpDomain=HTTPS_DOMAIN)
   if not recursionDepth:
     return
   elif not hasattr(extCompile, 'search'):
-    streamPrintFlush(
-     "Expecting a pattern object/result of re.compile(..) for arg 'extCompile'\n"
-    , sys.stderr)
+    utils.streamPrintFlush(
+     "Expecting a pattern object/result of re.compile(..) for arg 'extCompile'\n", sys.stderr
+    )
     return
 
-  if not httpHeadCompile.search(url): 
+  if not utils.httpHeadCompile.search(url): 
     url = "%s%s"%(httpDomain, url)
-    print("URL ", url)
 
-  if getRobotsFile(url) != ROBOT_CAN_CRAWL:
+  if getRobotsFile(url) != utils.ROBOT_CAN_CRAWL:
     return
   
   try:
-    data = urlGetter.urlopen(url)
-    if pyVersion >= 3:decodedData = data.read().decode()
-    else: decodedData = data.read()
-    
+    data = utils.urlGetter.urlopen(url)
+    decodedData = data.read().decode() if utils.pyVersion >= 3 else data.read()
   except Exception as e:
-    print('exc', e)
+    print('During reading of data from', url, e)
+    return
   else:
-    urls = urlCompile.findall(decodedData)
-    urls = list(map(lambda s : repeatHttpHeadCompile.sub(HTTP_HEAD_REGEX, s), urls))
+    urls = utils.urlCompile.findall(decodedData)
+    urls = list(map(lambda s : utils.repeatHttpHeadCompile.sub(utils.HTTP_HEAD_REGEX, s), urls))
 
     plainUrls = []
     matchedFileUrls = []
@@ -118,7 +88,6 @@ def getFiles(url, extCompile, router, recursionDepth=5, httpDomain=HTTPS_DOMAIN)
 
         pathSelector.append(u)
 
-    #Time to download all the matched files 
     dlResults = map(
        lambda eachUrl: pushUpJob(eachUrl, router, url), set(matchedFileUrls)
     )
@@ -169,7 +138,7 @@ def main():
   ])
   while True:
     try:
-      streamPrintFlush(
+      utils.streamPrintFlush(
         "\nTarget Url: eg [www.example.org or http://www.h.com] ", sys.stderr
       )
       lineIn, eofState = readFromStream()
@@ -181,7 +150,7 @@ def main():
       else:
         continue
 
-      streamPrintFlush(
+      utils.streamPrintFlush(
        "Your extensions separated by '|' eg png|html: ", sys.stderr
       )
 
@@ -189,7 +158,7 @@ def main():
       if eofState: break
       extensions = lineIn.strip("\n")
       
-      streamPrintFlush(
+      utils.streamPrintFlush(
         "\nRecursion Depth(a negative depth indicates you want script to go as far): ", sys.stderr
       )
 
@@ -201,18 +170,16 @@ def main():
       else:
         rDepth = 1
 
-      formedRegex = extensionify(extensions or DEFAULT_EXTENSIONS_REGEX)
+      formedRegex = utils.extensionify(extensions or utils.DEFAULT_EXTENSIONS_REGEX)
+      extCompile = utils.regexCompile(formedRegex)
 
-      extCompile = regexCompile(formedRegex)
-
-    except ValueError as e:
-      print('e', e)
-      streamPrintFlush("Recursion depth must be an integer\n", sys.stderr)
+    except ValueError:
+      utils.streamPrintFlush("Recursion depth must be an integer\n", sys.stderr)
     except KeyboardInterrupt:
-      streamPrintFlush("Ctrl-C applied. Exiting now..\n",sys.stderr)
+      utils.streamPrintFlush("Ctrl-C applied. Exiting now..\n", sys.stderr)
       break
-    except Exception as e:
-      print(e)
+    except Exception:
+      print('Generic exception encountered')
       continue
     else:
       if not baseUrl:
@@ -221,10 +188,10 @@ def main():
       if extCompile:
         getFiles(baseUrl, extCompile, router, rDepth)
 
-  streamPrintFlush("Bye..\n",sys.stderr)
+  utils.streamPrintFlush("Bye..\n",sys.stderr)
 
 if __name__ == '__main__':
   try:
     main()
-  except Exception as e:
-    print('e', e)
+  except Exception:
+    sys.stderr.write('During processing, exception encountered.\nExiting now!\n')
