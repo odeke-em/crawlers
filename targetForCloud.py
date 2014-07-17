@@ -8,7 +8,7 @@ import sys
 import time
 
 from resty import restDriver
-from utils import streamPrintFlush, generateBadUrlReport, showStats
+from utils import streamPrintFlush, generateBadUrlReport, showStats, robotsTxt
 from routeUtils import WorkerDriver, Router
 
 pyVersion = sys.hexversion/(1<<24)
@@ -30,29 +30,70 @@ END_NAME = "([^\/\s]+\.\w+)$" #The text right after the last slash '/'
 HTTP_DOMAIN = "http://"
 HTTPS_DOMAIN = "https://"
 
-DEFAULT_TIMEOUT = 5 # Seconds
 __LOCAL_CACHE = dict()
+__ROBOTS_TXT_CACHE__ = dict()
 
-regexCompile = lambda regex : re.compile(regex, re.IGNORECASE|re.UNICODE)
+DEFAULT_TIMEOUT = 5 # Seconds
+regexCompile = lambda regex: re.compile(regex, re.IGNORECASE|re.UNICODE)
 
-def getFiles(
-  url, extCompile, router, recursionDepth=5, httpDomain=HTTPS_DOMAIN
-):
+httpHeadCompile = regexCompile(HTTP_HEAD_REGEX)
+repeatHttpHeadCompile = regexCompile(REPEAT_HTTP)
+urlCompile = re.compile(URL_REGEX, re.MULTILINE|re.IGNORECASE|re.UNICODE)
+
+ROBOT_CAN_CRAWL = 0
+ROBOT_SUCCESS = 1
+ROBOT_ERR = 2
+
+def getRobotsFile(url):
+  robotsUrl = robotsTxt(url)
+  retr = __ROBOTS_TXT_CACHE__.get(robotsUrl, None)
+  if retr is None:
+    retr = memoizeRobotsFile(robotsUrl)
+
+  return retr
+
+def memoizeRobotsFile(url):
+  res = ROBOT_ERR
+  try:
+    robotFile = urlGetter.urlopen(url)
+  except Exception as e:
+    print('e', e)
+  else:
+    data = robotFile.read().decode()
+    '''
+    # TODO: Actually parse the file
+    splitD = data.split('\n')
+    for l in splitD:
+        if l:
+            pass
+    '''
+    res = ROBOT_CAN_CRAWL # TODO: Toggle and get value if that url can be visited
+    
+
+  __ROBOTS_TXT_CACHE__[url] = res
+  
+  return res
+
+def getFiles(url, extCompile, router, recursionDepth=5, httpDomain=HTTPS_DOMAIN):
   # Args: url, extCompile=> A pattern object of the extension(s) to match
   #      recursionDepth => An integer that indicates how deep to scrap
   #                        Note: A negative recursion depth indicates that you want
   #                          to keep crawling as far as the program can go
-  if not recursionDepth: return
-  if not hasattr(extCompile, 'search'):
+  if not recursionDepth:
+    return
+  elif not hasattr(extCompile, 'search'):
     streamPrintFlush(
      "Expecting a pattern object/result of re.compile(..) for arg 'extCompile'\n"
     , sys.stderr)
     return
 
-  if not re.search(HTTP_HEAD_REGEX, url): 
+  if not httpHeadCompile.search(url): 
     url = "%s%s"%(httpDomain, url)
     print("URL ", url)
 
+  if getRobotsFile(url) != ROBOT_CAN_CRAWL:
+    return
+  
   try:
     data = urlGetter.urlopen(url)
     if pyVersion >= 3:decodedData = data.read().decode()
@@ -61,8 +102,8 @@ def getFiles(
   except Exception as e:
     print('exc', e)
   else:
-    urls = re.findall(URL_REGEX, decodedData, re.MULTILINE)
-    urls = list(map(lambda s : re.sub(REPEAT_HTTP,HTTP_HEAD_REGEX,s), urls))
+    urls = urlCompile.findall(decodedData)
+    urls = list(map(lambda s : repeatHttpHeadCompile.sub(HTTP_HEAD_REGEX, s), urls))
 
     plainUrls = []
     matchedFileUrls = []
@@ -181,6 +222,7 @@ def main():
         getFiles(baseUrl, extCompile, router, rDepth)
 
   streamPrintFlush("Bye..\n",sys.stderr)
+
 if __name__ == '__main__':
   try:
     main()

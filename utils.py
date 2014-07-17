@@ -1,12 +1,28 @@
 #!/usr/bin/python3
 
+import re
 import sys
 import time
-BAD_URL_REPORT_FILE = "badUrlsReport.txt"
 
-#Writes a message to a stream and flushes the stream
-streamPrintFlush = lambda msg,stream=sys.stderr: msg and stream.write(msg) and stream.flush()
+CRAWLER_NAME = 'Rosebot'
+BAD_URL_REPORT_FILE = 'badUrlsReport.txt'
 
+mainDomainCompile = re.compile('(https?://[^\/]+\/?)?', re.IGNORECASE|re.UNICODE)
+
+# Writes a message to a stream and flushes the stream
+streamPrintFlush = lambda msg,stream=sys.stderr:\
+    msg and stream.write(msg) and stream.flush()
+
+def getTopDomain(url):
+    if url and hasattr(url, '__str__'):
+        rSearch = mainDomainCompile.search(url)
+        if rSearch:
+            return rSearch.groups(1)[0]
+
+def robotsTxt(url):
+    topDomain = getTopDomain(url)
+    if topDomain:
+        return '%s/robots.txt'%(topDomain.strip('/'))
 
 def generateBadUrlReport(missesDict):
   if missesDict:
