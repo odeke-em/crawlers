@@ -55,19 +55,30 @@ except ImportError:
    byteFyer = lambda st, **fmtArgs : st
 
 # Writes a message to a stream and flushes the stream
-streamPrintFlush = lambda msg,stream=sys.stderr:\
-    msg and stream.write(msg) and stream.flush()
+streamPrintFlush = lambda msg, st=sys.stderr: msg and st.write(msg) and st.flush()
 
 def getTopDomain(url):
     if url and hasattr(url, '__str__'):
         rSearch = mainDomainCompile.search(url)
         if rSearch:
-            return rSearch.groups(1)[0]
+            return rSearch.groups(1)[0].strip('/')
 
 def robotsTxt(url):
     topDomain = getTopDomain(url)
     if topDomain:
-        return '%s/robots.txt'%(topDomain.strip('/'))
+        return '%s/robots.txt'%(topDomain)
+
+def dlAndDecode(url):
+    try:
+        dl = urlGetter.urlopen(url)
+        if pyVersion >= 3:
+            dlData = dl.read().decode()
+        else:
+            dlData = dl.read()
+    except Exception:
+        return None
+    else:
+        return dlData
 
 def generateBadUrlReport(missesDict):
   if missesDict:

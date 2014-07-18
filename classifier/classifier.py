@@ -109,7 +109,7 @@ def readInFileContent(pathList):
                         if not wItem is None:
                             wordsDict[w] = wItem
 
-                        charno += 1
+                        charno += len(w)
 
             except Exception: # TODO: Handle this error
                 sys.stderr.write(

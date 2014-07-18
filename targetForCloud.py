@@ -23,24 +23,10 @@ def getRobotsFile(url):
   return retr
 
 def memoizeRobotsFile(roboUrl):
-  res = utils.ROBOT_ERR
-  try:
-    robotFile = utils.urlGetter.urlopen(roboUrl)
-  except Exception:
-    utils.streamPrintFlush('Exception occured during extraction of robots file')
-  else:
-    if not robotFile.length: # No such file exists
-      res = utils.ROBOT_CAN_CRAWL
-    else:
-      data = robotFile.read().decode()
-      '''
-      # TODO: Actually parse the file
-      splitD = data.split('\n')
-      for l in splitD:
-        if l:
-            pass
-      '''
-      res = utils.ROBOT_CAN_CRAWL # TODO: Toggle and get value if that url can be visited
+  res = utils.ROBOT_CAN_CRAWL
+  decodedData = utils.dlAndDecode(roboUrl)
+  if not decodedData:
+    res = utils.ROBOT_CAN_CRAWL # TODO: Toggle and get value if that url can be visited
 
   __ROBOTS_TXT_CACHE__[roboUrl] = res
   
@@ -65,11 +51,8 @@ def getFiles(url, extCompile, router, recursionDepth=5, httpDomain=utils.HTTPS_D
   if getRobotsFile(url) != utils.ROBOT_CAN_CRAWL:
     return
   
-  try:
-    data = utils.urlGetter.urlopen(url)
-    decodedData = data.read().decode() if utils.pyVersion >= 3 else data.read()
-  except Exception as e:
-    print('During reading of data from', url, e)
+  decodedData = utils.dlAndDecode(url)
+  if not decodedData:
     return
   else:
     urls = utils.urlCompile.findall(decodedData)

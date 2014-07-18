@@ -33,17 +33,14 @@ def getFiles(url, extCompile, recursionDepth=5, httpDomain=utils.HTTPS_DOMAIN, b
   if not utils.httpHeadCompile.search(url): 
     url = "%s%s"%(httpDomain, url)
 
-  try:
-    data = utils.urlGetter.urlopen(url)
-    if utils.pyVersion >= 3:
-      decodedData = data.read().decode()
-    else:
-      decodedData = data.read()
-  except Exception:
+  decodedData = utils.dlAndDecode(url)
+  if not decodedData:
     return
   else:
     urls = utils.urlCompile.findall(decodedData)
-    urls = list(map(lambda s: utils.repeatHttpHeadCompile.sub(utils.HTTP_HEAD_REGEX, s), urls))
+    urls = list(
+        map(lambda s: utils.repeatHttpHeadCompile.sub(utils.HTTP_HEAD_REGEX, s), urls)
+    )
 
     plainUrls = []
     matchedFileUrls = []
