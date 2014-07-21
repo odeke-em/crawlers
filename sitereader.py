@@ -36,10 +36,10 @@ def site_opener(url, stderr,errorVerbosity, user_agent=UBUNTU_UAGENT):
 
     data = modified_opener.open(url) # Use the modified url opener to open url
   except Exception as e:
-    if (errorVerbosity): #Log the error to std
+    if errorVerbosity: #Log the error to std
 
       # Possibly corrupted url or no internet connectionerr
-      if (isinstance(e, urllib.error.URLError)): 
+      if isinstance(e, urllib.error.URLError): 
         errMsg = "Unknown service %s or check your Internet connection"%(url)
       else:
         errMsg = "While opening url '%s' error: %s encountered"%(
