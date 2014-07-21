@@ -25,32 +25,35 @@ NULL_STR    = ''
 URL_REGEX	= r'<a\s+.*\s*href="([^<>]*)">.*</a>'
 HEADLINE_REGEX	= r'([^>]*)</a>'
 LIST_ITEM_STR	= 'li'
+urlRegCompile = re.compile(URL_REGEX, re.UNICODE)
+headlineRegCompile = re.compile(HEADLINE_REGEX, re.UNICODE)
 
 ###########################################################################
 
 def isfullUrl(linkStr):
-   return ( re.search( HTTP_S_HEADER,linkStr) != None )
+   return (re.search(HTTP_S_HEADER,linkStr) != None)
 
-def getXMLTree( htmlString ):
-   xml_tree = minidom.parseString( htmlString )
+def getXMLTree(htmlString):
+   xml_tree = minidom.parseString(htmlString)
    return xml_tree
 
-def getBBCSiteData( bbc_url, stderrStream, errorVerbosity ):
+def getBBCSiteData(bbc_url, stderrStream, errorVerbosity):
    "Return a list of links extracted from reading html content of a bbc url.\n\
     Pass in the stderrStream io_buffer to write to output as well as the\
      'errorVerbosity' flag to turn on/off active error reporting"
-   bbc_html_data = site_opener( bbc_url, stderrStream, errorVerbosity ) 
+   bbc_html_data = site_opener(bbc_url, stderrStream, errorVerbosity) 
    if not bbc_html_data:
       return None
 
    try:
-      xml_tree = getXMLTree( bbc_html_data )
+      xml_tree = getXMLTree(bbc_html_data)
 
    except Exception as e:
+      print(e)
       return None
    
    elements = xml_tree.documentElement
-   li_items = elements.getElementsByTagName( LIST_ITEM_STR )
+   li_items = elements.getElementsByTagName(LIST_ITEM_STR)
 
    outdata  = NULL_STR
    links    = []
@@ -59,29 +62,29 @@ def getBBCSiteData( bbc_url, stderrStream, errorVerbosity ):
 
       value = item.toprettyxml()
 
-      value = value.replace( HTML_AMPERSAND,ASCII_AMPERSAND )
-      value = value.replace( NEWLINE,NULL_STR )
-      value = value.replace( TAB,NULL_STR )
+      value = value.replace(HTML_AMPERSAND,ASCII_AMPERSAND)
+      value = value.replace(NEWLINE,NULL_STR)
+      value = value.replace(TAB,NULL_STR)
 
-      LINK_MATCH     = re.findall( URL_REGEX,value )
-      HEADLINE_MATCH = re.search( HEADLINE_REGEX,value )
+      LINK_MATCH     = urlRegCompile.findall(value)
+      HEADLINE_MATCH = headlineRegCompile.search(value)
 
       if HEADLINE_MATCH:
          headline = HEADLINE_MATCH.groups(1)[0]
-         outdata += '%-65s %s'%( headline, TAB )
+         outdata += '%-65s %s'%(headline, TAB)
 
       if LINK_MATCH:
          child_link = LINK_MATCH[0]
-         child_link = child_link.strip( '"' )
-         child_link = correctMalformed( child_link )
-         REV_FOUND  = child_link.find( 'rev="' )
+         child_link = child_link.strip('"')
+         child_link = correctMalformed(child_link)
+         REV_FOUND  = child_link.find('rev="')
 
          if REV_FOUND != -1:
             child_link = child_link[ :REV_FOUND ]
 
-         child_link = re.sub( 'rev="(.*)"',"", str( child_link ))
+         child_link = re.sub('rev="(.*)"',"", str(child_link))
 
-         if not ( isfullUrl( child_link ) ):
+         if not (isfullUrl(child_link)):
             child_link = bbc_url  + child_link
 
          links   += [ child_link ]
@@ -89,19 +92,19 @@ def getBBCSiteData( bbc_url, stderrStream, errorVerbosity ):
 
       outdata += NEWLINE
 
-   stderrStream.write( outdata )
+   stderrStream.write(outdata)
    stderrStream.flush()
 
    return links
 
-def recurLinks( parent_link, stderr, errorVerbosity ):
-   children_links    = getBBCSiteData( parent_link, stderr, errorVerbosity )
+def recurLinks(parent_link, stderr, errorVerbosity):
+   children_links    = getBBCSiteData(parent_link, stderr, errorVerbosity)
 
    if not children_links: 
       return None
 
    for child in children_links:
-      grand_children_links = recurLinks( child, stderr, errorVerbosity )
+      grand_children_links = recurLinks(child, stderr, errorVerbosity)
       
 def main():
    parser          = command_line_parse()
@@ -110,11 +113,12 @@ def main():
    stderrFName     = options.outStderr
    errorVerbosity  = options.errorVerbosity
    
-   stderr = setStderr( stderrFName )   
-   links  = getBBCSiteData( bbc_url, stderr, errorVerbosity )
+   stderr = setStderr(stderrFName)   
+   links  = getBBCSiteData(bbc_url, stderr, errorVerbosity)
+   print('links', links)
 
    for link in links:
-      getBBCSiteData( link, stderr, errorVerbosity )   
+      getBBCSiteData(link, stderr, errorVerbosity)   
 
 if __name__ == '__main__':
    main()
