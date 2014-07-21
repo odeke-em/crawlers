@@ -104,7 +104,11 @@ class RobotParser:
 
 def main():
     rb = RobotParser()
-    qList = ['http://cnn.com/', 'http://time.com/time', 'http://www.cnn.com/2014/07/14/showbiz/music/unlocking-the-truth-sony-record-deal/index.html?hpt=us_t3', 'http://www.google.com/search', 'http://www.google.com/maps/ukraine']
+    qList = [
+        'http://cnn.com/', 'http://time.com/time',
+        'http://www.cnn.com/2014/07/14/showbiz/music/unlocking-the-truth-sony-record-deal/index.html?hpt=us_t3',
+        'http://www.google.com/search', 'http://www.google.com/maps/ukraine', 'https://www.youtube.com/watch?v=Ei8nL3SvRSY'
+    ]
     for q in qList:
         print(q, rb.canVisit(q))
 
