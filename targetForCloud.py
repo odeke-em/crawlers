@@ -6,33 +6,16 @@
 import sys
 
 import utils
+import RobotParser
 from resty import restDriver
 from routeUtils import WorkerDriver, Router
 
 __LOCAL_CACHE = dict()
-__ROBOTS_TXT_CACHE__ = dict()
 
+robotParser = RobotParser.RobotParser()
 DEFAULT_TIMEOUT = 5 # Seconds
 
-def getRobotsFile(url):
-  robotsUrl = utils.robotsTxt(url)
-  retr = __ROBOTS_TXT_CACHE__.get(robotsUrl, None)
-  if retr is None:
-    retr = memoizeRobotsFile(robotsUrl)
-
-  return retr
-
-def memoizeRobotsFile(roboUrl):
-  res = utils.ROBOT_CAN_CRAWL
-  decodedData = utils.dlAndDecode(roboUrl)
-  if not decodedData:
-    res = utils.ROBOT_CAN_CRAWL # TODO: Toggle and get value if that url can be visited
-
-  __ROBOTS_TXT_CACHE__[roboUrl] = res
-  
-  return res
-
-def getFiles(url, extCompile, router, recursionDepth=5, httpDomain=utils.HTTPS_DOMAIN):
+def extractFileUrls(url, extCompile, router, recursionDepth=5, httpDomain=utils.HTTPS_DOMAIN):
   # Args: url, extCompile=> A pattern object of the extension(s) to match
   #      recursionDepth => An integer that indicates how deep to scrap
   #                        Note: A negative recursion depth indicates that you want
@@ -48,7 +31,8 @@ def getFiles(url, extCompile, router, recursionDepth=5, httpDomain=utils.HTTPS_D
   if not utils.httpHeadCompile.search(url): 
     url = "%s%s"%(httpDomain, url)
 
-  if getRobotsFile(url) != utils.ROBOT_CAN_CRAWL:
+  if not robotParser.canVisit(url):
+    print('Cannot visit %s due to /robots.txt rules'%(url))
     return
   
   decodedData = utils.dlAndDecode(url)
@@ -78,7 +62,7 @@ def getFiles(url, extCompile, router, recursionDepth=5, httpDomain=utils.HTTPS_D
 
     recursionDepth -= 1
     for eachUrl in plainUrls:
-      getFiles(eachUrl, extCompile, router, recursionDepth)
+      extractFileUrls(eachUrl, extCompile, router, recursionDepth)
 
 def pushUpJob(url, router, parentUrl=''):
     # First query if this item was already seen by this worker
@@ -169,7 +153,7 @@ def main():
         continue
 
       if extCompile:
-        getFiles(baseUrl, extCompile, router, rDepth)
+        extractFileUrls(baseUrl, extCompile, router, rDepth)
 
   utils.streamPrintFlush("Bye..\n",sys.stderr)
 
