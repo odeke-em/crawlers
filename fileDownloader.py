@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/python
 # Author: Emmanuel Odeke <odeke@ualberta.ca>
 # Scrap any website for files with target extensions eg pdf, png, gif etc
 # Tested on, and supporting versions: Python2.X and above
@@ -126,7 +126,8 @@ def dlData(url, dirStoragePath=None):
 
  try:
    data = utils.urlGetter.urlopen(url)
- except Exception: return False
+ except Exception:
+   return False
  else:
    fileSearch = utils.endNameCompile.findall(url)
    if not fileSearch:
