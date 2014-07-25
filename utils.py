@@ -93,7 +93,7 @@ def createDir(dirPath):
   # print("CreateDir:: ", dirPath)
   if dirPath and not os.path.exists(dirPath):
      os.mkdir(dirPath)
-     if DEBUG: utils.streamPrintFlush("Done creating %s\n"%(dirPath), sys.stderr)
+     streamPrintFlush("Done creating %s\n"%(dirPath), sys.stderr)
 
 def showStats(startTimeSecs, hitsDict, missesDict):
   nDownloads = len(hitsDict)
