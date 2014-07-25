@@ -66,12 +66,16 @@ def extractFileUrls(url, extCompile, router, recursionDepth=5, httpDomain=utils.
 
 def pushUpJob(url, router, parentUrl=''):
     # First query if this item was already seen by this worker
-    if __LOCAL_CACHE.get(url, None) is None:
-
+    if __LOCAL_CACHE.get(url, None) is not None:
+        print('Already locally memoized as submitted to cloud', url)
+    else:
         # Query if this file is already present 
         rDriver = router.getWorkerDriver(url)
         query = restDriver.produceAndParse(rDriver.restDriver.getJobs, message=url)
-        if not (hasattr(query, 'keys') and query.get('data', None) and len(query['data'])):
+        if (hasattr(query, 'keys') and query.get('data', None) and len(query['data'])):
+            print('Was submitted to the cloud by another crawler', url)
+            __LOCAL_CACHE[url] = True
+        else:
             saveResponse = rDriver.restDriver.newJob(
                 message=url, assignedWorker_id=rDriver.getWorkerId(),
                 metaData=parentUrl, author=rDriver.getDefaultAuthor()
@@ -80,12 +84,6 @@ def pushUpJob(url, router, parentUrl=''):
             if saveResponse.get('status_code', 400) == 200:
                 print('Successfully submitted', url, 'to the cloud')
                 __LOCAL_CACHE[url] = True
-        else:
-            print('Was submitted to the cloud by another crawler', url)
-            __LOCAL_CACHE[url] = True
-
-    else:
-        print('Already locally memoized as submitted to cloud', url)
 
 def readFromStream(stream=sys.stdin):
   try:
