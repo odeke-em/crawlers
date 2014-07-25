@@ -175,9 +175,8 @@ def main():
     wDict = readInFileContent(srcPath)
     clusterDict = createClusters(wDict, threshold=0.85,
         retrPivots=[
-            'Africa', 'Messi', 'Egypt', 'Hunger', 'NSA', 'Gaza',
-            'Privacy', 'Ukraine', 'Snowden', 'Bloomberg', 'Spam'
-            
+            'Africa', 'Career', 'Inflation', 'Hunger', 'Obama', 'Gaza',
+            'Privacy', 'Ukraine', 'Snowden', 'Bloomberg', 'Malaysia'
         ]
     )
 
