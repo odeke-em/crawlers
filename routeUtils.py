@@ -80,14 +80,16 @@ class WorkerDriver:
         return self.__workerId
 
     def initWorker(self):
-        qResponse = restDriver.produceAndParse(self.restDriver.getWorkers, purpose='Crawling', select='id', format='short')
-        if qResponse.get('data', None):
+        qResponse = restDriver.produceAndParse(
+            self.restDriver.getWorkers, purpose='Crawling', select='id', format='short'
+        )
+
+        if qResponse.get('data', None) is not None:
             print('Present workers', qResponse)
             self.__workerId = qResponse['data'][0].get('id', -1)
         else:
             cResponse = restDriver.produceAndParse(self.restDriver.newWorker, purpose='Crawling')
-            print('Created worker response', cResponse)
-            self.__workerId = cResponse.get('data', [{'id', -1}]).get('id', -1)
+            self.__workerId = cResponse.get('data', {'id': -1}).get('id', -1)
 
         print('WorkerId', self.__workerId)
 
