@@ -84,7 +84,7 @@ class WorkerDriver:
             self.restDriver.getWorkers, purpose='Crawling', select='id', format='short'
         )
 
-        if qResponse.get('data', None) is not None:
+        if qResponse.get('data', None):
             print('Present workers', qResponse)
             self.__workerId = qResponse['data'][0].get('id', -1)
         else:
