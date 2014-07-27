@@ -99,7 +99,7 @@ def main():
 
   # Route manager
   router = Router([
-    'http://127.0.0.1:8000', 'http://127.0.0.1:8008'
+    'http://127.0.0.1:8000', 'http://127.0.0.1:8008', 'http://127.0.0.1:8009'
   ])
   while True:
     try:
