@@ -71,7 +71,7 @@ def pushUpJob(url, router, parentUrl=''):
     else:
         # Query if this file is already present 
         rDriver = router.getWorkerDriver(url)
-        query = restDriver.produceAndParse(rDriver.restDriver.getJobs, message=url)
+        query = rDriver.restDriver.getJobs(message=url)
         if (hasattr(query, 'keys') and query.get('data', None) and len(query['data'])):
             print('Was submitted to the cloud by another crawler', url)
             __LOCAL_CACHE[url] = True
@@ -144,6 +144,9 @@ def main():
       utils.streamPrintFlush("Ctrl-C applied. Exiting now..\n", sys.stderr)
       break
     except Exception:
+      # TODO: [Informative exceptions]:
+      #       + Handle traceback from sys somehow, since using Exception as e won't
+      #         is invalid syntax for x <= Python2.5
       print('Generic exception encountered')
       continue
     else:
@@ -158,5 +161,5 @@ def main():
 if __name__ == '__main__':
   try:
     main()
-  except Exception:
+  except Exception: # See TODO: [Informative exceptions]
     sys.stderr.write('During processing, exception encountered.\nExiting now!\n')

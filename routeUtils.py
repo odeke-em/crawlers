@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import re
+import random
 
 from resty import restDriver
 from routing import RouterManager
@@ -50,21 +51,19 @@ class WorkerDriver:
         assert(rHandler)
 
     def initRouting(self):
-        rResponse = restDriver.produceAndParse(
-            self.restDriver.getRoutes, address=self.restDriver.getBaseUrl()
-        )
-        if rResponse.get('status_code', 400) == 200 and rResponse.get('data', None):
-            print('Already registered', self.restDriver.getBaseUrl())
+        baseUrl = self.restDriver.getBaseUrl()
+        rResponse = self.restDriver.getRoutes(address=baseUrl)
+        value = rResponse.get('value', {})
+        if rResponse.get('status_code', 400) == 200 and value.get('data', None):
+            print('Already registered', baseUrl)
         else:
-            cResponse = restDriver.produceAndParse(
-                self.restDriver.newRoute, address=self.restDriver.getBaseUrl()
+            cResponse = self.restDriver.newRoute(
+                address=self.restDriver.getBaseUrl()
             )
-            print(cResponse)
+            print('After logging the route', cResponse)
 
         # Let's now get the list of all present routes
-        routeManifest = restDriver.produceAndParse(
-            self.restDriver.getRoutes, select='address'
-        )
+        routeManifest = self.restDriver.getRoutes(select='address')
         if routeManifest.get('status_code', 400) == 200:
             data = routeManifest.get('data', None) or [] 
             
@@ -80,18 +79,23 @@ class WorkerDriver:
         return self.__workerId
 
     def initWorker(self):
-        qResponse = restDriver.produceAndParse(
-            self.restDriver.getWorkers, purpose='Crawling', select='id', format='short'
-        )
+        workerCheck = self.restDriver.getWorkers(
+            purpose='Crawling', select='id', format='short'
+        ).get('value', {})
 
-        if qResponse.get('data', None):
-            print('Present workers', qResponse)
-            self.__workerId = qResponse['data'][0].get('id', -1)
+        if workerCheck.get('data', None):
+            workersPresent = workerCheck['data']
+            randWorkerId = random.sample(workersPresent, 1)[0].get('id', -1)
+            self.__workerId = randWorkerId
+            print('Present workers: {wp} randPickedWorker: {rw}'.format(
+                wp=workersPresent, rw=randWorkerId)
+            )
         else:
-            cResponse = restDriver.produceAndParse(self.restDriver.newWorker, purpose='Crawling')
-            self.__workerId = cResponse.get('data', {'id': -1}).get('id', -1)
+            nwResp = self.restDriver.newWorker(purpose='Crawling').get('value', {})
+            print('nwResp', nwResp)
+            self.__workerId = nwResp.get('data', {'id': -1}).get('id', -1)
 
-        print('WorkerId', self.__workerId)
+        print('Initialized WorkerId: ', self.__workerId)
 
 def main():
     pass
