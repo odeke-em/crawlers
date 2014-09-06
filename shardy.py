@@ -15,16 +15,16 @@ __LOCAL_CACHE = dict()
 robotParser = RobotParser.RobotParser()
 DEFAULT_TIMEOUT = 5 # Seconds
 
-def extractFileUrls(url, extCompile, router, recursionDepth=5, httpDomain=utils.HTTPS_DOMAIN):
+def extractFileUrls(url, extCompile, router, depth=5, httpDomain=utils.HTTPS_DOMAIN):
   # Args: url, extCompile=> A pattern object of the extension(s) to match
-  #      recursionDepth => An integer that indicates how deep to scrap
+  #      depth => An integer that indicates how deep to scrap
   #                        Note: A negative recursion depth indicates that you want
   #                          to keep crawling as far as the program can go
-  if not recursionDepth:
+  if not depth:
     return
-  elif not hasattr(extCompile, 'search'):
+  elif not restDriver.isCallableAttr(extCompile, 'search'):
     utils.streamPrintFlush(
-     "Expecting a pattern object/result of re.compile(..) for arg 'extCompile'\n", sys.stderr
+     "Expecting a regex compiled object/result as arg 'extCompile'\n", sys.stderr
     )
     return
 
@@ -40,7 +40,7 @@ def extractFileUrls(url, extCompile, router, recursionDepth=5, httpDomain=utils.
     return
   else:
     urls = utils.urlCompile.findall(decodedData)
-    urls = list(map(lambda s : utils.repeatHttpHeadCompile.sub(utils.HTTP_HEAD_REGEX, s), urls))
+    urls = [utils.repeatHttpHeadCompile.sub(utils.HTTP_HEAD_REGEX, s) for s in urls]
 
     plainUrls = []
     matchedFileUrls = []
@@ -55,14 +55,13 @@ def extractFileUrls(url, extCompile, router, recursionDepth=5, httpDomain=utils.
 
         pathSelector.append(u)
 
-    dlResults = map(
-       lambda eachUrl: pushUpJob(eachUrl, router, url), set(matchedFileUrls)
-    )
-    resultsList = list(filter(lambda val: val, dlResults))
+    uniqFileUrls = set(matchedFileUrls)
+    dlResults = [pushUpJob(eachUrl, router, url) for eachUrl in uniqFileUrls]
+    resultsList = [val for val in dlResults if val]
 
-    recursionDepth -= 1
+    depth -= 1
     for eachUrl in plainUrls:
-      extractFileUrls(eachUrl, extCompile, router, recursionDepth)
+      extractFileUrls(eachUrl, extCompile, router, depth)
 
 def pushUpJob(url, router, parentUrl=''):
     # First query if this item was already seen by this worker

@@ -17,7 +17,7 @@ class RobotParser:
             robotPath = utils.robotsTxt(topDomain)
 
     def parseRobotFile(self, domain, robotFile):
-        if not robotFile:
+        if not robotFile: # Avoid urls without robots.txt -- debatable issue.
             return None
         splitL = robotFile.split('\n')
         spLen = len(splitL)
