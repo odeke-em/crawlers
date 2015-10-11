@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 # Author: Emmanuel Odeke <odeke@ualberta.ca>
 # Sharded version of 'fileDownloader.py' except that it submits urls to a jobTable
 # of which the urls will later be indexed accordingly
