@@ -42,6 +42,15 @@ def getFiles(url, extCompile, recursionDepth=5, httpDomain=utils.HTTPS_DOMAIN, b
         map(lambda s: utils.repeatHttpHeadCompile.sub(utils.HTTP_HEAD_REGEX, s), urls)
     )
 
+    if not urls:
+       capableUrls = utils.urlCapableCompile.findall(decodedData)
+       trimmedHeadUrl = url.strip('/')
+
+       for capableUrl in capableUrls:
+          trimmed = capableUrl.strip('/')
+          fixedUrl = '%s/%s'%(trimmedHeadUrl, trimmed)
+          urls.append(fixedUrl)
+
     plainUrls = []
     matchedFileUrls = []
 
